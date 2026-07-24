@@ -4,6 +4,7 @@ import (
 	"ark-server-commander/controllers/auth"
 	"ark-server-commander/controllers/images"
 	"ark-server-commander/controllers/plugins"
+	"ark-server-commander/controllers/rcon"
 	"ark-server-commander/controllers/servers"
 	"ark-server-commander/middleware"
 	"fmt"
@@ -84,8 +85,9 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 				serverRoutes.POST("/:id/stop", servers.StopServer)
 				serverRoutes.POST("/:id/restart", servers.RestartServer)
 				serverRoutes.POST("/:id/recreate", servers.RecreateContainer)
-				serverRoutes.GET("/:id/rcon", servers.GetServerRCON)
-				serverRoutes.GET("/:id/logs", servers.GetServerLogs)
+			serverRoutes.GET("/:id/rcon", servers.GetServerRCON)
+			serverRoutes.POST("/:id/rcon/execute", rcon.ExecuteRCON)
+			serverRoutes.GET("/:id/logs", servers.GetServerLogs)
 			}
 
 			// Image Management
