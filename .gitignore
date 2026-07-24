@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+bin/
+*.exe
+*.test
+*.out
+node_modules/
+.next/
+.cache/
+data/
+.env
+.env.local
+.pyc
