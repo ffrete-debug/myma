@@ -26,4 +26,13 @@ ARK Server Commander - Web UI for managing ARK: Survival Evolved servers in Dock
 - ark-commander reference: `/tmp/ark-commander-ref/` (cloned for source reference)
 
 ## History
-- Initial session: workspace set up, skills repos cloned, poetry init completed, memory system initialized
+- Initial session: workspace set up with ark-commander codebase (Go backend + Next.js frontend)
+- Cloned superpowers skills framework as submodule at `skills/superpowers/`
+- Cloned anthropics/skills as submodule at `skills/anthropics-skills/` (frontend-design skill at `skills/anthropics-skills/skills/frontend-design/SKILL.md`)
+- Configured opencode.json with `superpowers@git+https://github.com/obra/superpowers.git` plugin
+- Ran `poetry init` with name=myma, deps=pyyaml, requests, python-dotenv → `pyproject.toml` created
+- Created MEMORY.md for cross-session memory tracking
+- Created CLAUDE.md from superpowers for agent instructions
+- Created .gitignore for Go + Node.js build artifacts
+- Committed all setup files (2 commits)
+- Next session: user should use `skill` tool to load brainstorming before starting any new feature work
