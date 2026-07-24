@@ -1,8 +1,10 @@
 package rcon
 
 import (
+	"fmt"
 	"net/http"
 
+	"ark-server-commander/middleware"
 	"ark-server-commander/service/server"
 	"ark-server-commander/utils"
 	"github.com/gin-gonic/gin"
@@ -26,9 +28,12 @@ func ExecuteRCON(c *gin.Context) {
 
 	output, err := serverService.ExecuteRCONCommand(userID, serverID, req.Command)
 	if err != nil {
+		middleware.Log.Log(userID, "rcon.execute", fmt.Sprintf("server:%s", serverID), req.Command, c.ClientIP())
 		utils.InternalError(c, "RCON execution failed", err.Error())
 		return
 	}
+
+	middleware.Log.Log(userID, "rcon.execute", fmt.Sprintf("server:%s", serverID), req.Command, c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Command executed",
