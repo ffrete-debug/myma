@@ -1,0 +1,944 @@
+basePath: /api
+definitions:
+  models.ServerArgs:
+    properties:
+      command_line_args:
+        additionalProperties: true
+        description: 命令行参数（以-开头的参数）
+        type: object
+      custom_args:
+        description: 自定义参数（用户添加的其他参数）
+        items:
+          type: string
+        type: array
+      query_params:
+        additionalProperties:
+          type: string
+        description: 查询参数（以?开头的参数，不包含基础参数）
+        type: object
+    type: object
+  models.ServerArgsRequest:
+    properties:
+      command_line_args:
+        additionalProperties: true
+        type: object
+      custom_args:
+        items:
+          type: string
+        type: array
+      query_params:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  models.ServerRequest:
+    properties:
+      admin_password:
+        type: string
+      auto_restart:
+        description: 是否自动重启（可选）
+        type: boolean
+      cluster_id:
+        description: 集群ID
+        type: string
+      game_ini:
+        description: Game.ini 文件内容
+        type: string
+      game_mod_ids:
+        description: 游戏模组ID列表，用逗号分隔
+        type: string
+      game_user_settings:
+        description: 配置文件内容（可选）
+        type: string
+      identifier:
+        type: string
+      map:
+        type: string
+      max_players:
+        description: 最大玩家数
+        maximum: 200
+        minimum: 1
+        type: integer
+      port:
+        maximum: 65535
+        minimum: 1
+        type: integer
+      query_port:
+        maximum: 65535
+        minimum: 1
+        type: integer
+      rcon_port:
+        maximum: 65535
+        minimum: 1
+        type: integer
+      server_args:
+        allOf:
+        - $ref: '#/definitions/models.ServerArgsRequest'
+        description: 启动参数（可选）
+      session_name:
+        description: 服务器名称
+        type: string
+    required:
+    - admin_password
+    - identifier
+    - port
+    - query_port
+    - rcon_port
+    type: object
+  models.ServerResponse:
+    properties:
+      admin_password:
+        type: string
+      auto_restart:
+        type: boolean
+      cluster_id:
+        description: 集群ID
+        type: string
+      created_at:
+        type: string
+      game_ini:
+        description: Game.ini 文件内容
+        type: string
+      game_mod_ids:
+        type: string
+      game_user_settings:
+        description: 配置文件内容
+        type: string
+      generated_args:
+        description: 生成的完整启动参数字符串
+        type: string
+      id:
+        type: integer
+      identifier:
+        type: string
+      map:
+        type: string
+      max_players:
+        description: 最大玩家数
+        type: integer
+      port:
+        type: integer
+      query_port:
+        type: integer
+      rcon_port:
+        type: integer
+      server_args:
+        allOf:
+        - $ref: '#/definitions/models.ServerArgs'
+        description: 启动参数
+      session_name:
+        description: 服务器名称
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  models.ServerUpdateRequest:
+    properties:
+      admin_password:
+        type: string
+      auto_restart:
+        type: boolean
+      cluster_id:
+        description: 集群ID
+        type: string
+      game_ini:
+        description: Game.ini 文件内容
+        type: string
+      game_mod_ids:
+        description: 游戏模组ID列表，用逗号分隔
+        type: string
+      game_user_settings:
+        description: 配置文件内容（可选）
+        type: string
+      identifier:
+        type: string
+      map:
+        type: string
+      max_players:
+        description: 最大玩家数
+        maximum: 200
+        minimum: 1
+        type: integer
+      port:
+        maximum: 65535
+        minimum: 1
+        type: integer
+      query_port:
+        maximum: 65535
+        minimum: 1
+        type: integer
+      rcon_port:
+        maximum: 65535
+        minimum: 1
+        type: integer
+      server_args:
+        allOf:
+        - $ref: '#/definitions/models.ServerArgsRequest'
+        description: 启动参数（可选）
+      session_name:
+        description: 服务器名称
+        type: string
+    type: object
+  models.UserRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  models.UserResponse:
+    properties:
+      id:
+        type: integer
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API支持
+    url: http://www.swagger.io/support
+  description: 基于Gin+Gorm的ARK服务器管理系统API文档
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: ARK服务器管理器 API
+  version: "1.0"
+paths:
+  /auth/check-init:
+    get:
+      consumes:
+      - application/json
+      description: 检查系统是否已经初始化过用户
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 初始化状态
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: 检查系统初始化状态
+      tags:
+      - 认证
+  /auth/init:
+    post:
+      consumes:
+      - application/json
+      description: 创建第一个管理员用户，只能在系统未初始化时调用
+      parameters:
+      - description: 用户信息
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 初始化成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 初始化系统用户
+      tags:
+      - 认证
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: 使用用户名和密码登录系统
+      parameters:
+      - description: 登录凭据
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 登录成功
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 认证失败
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 用户登录
+      tags:
+      - 认证
+  /images/affected:
+    get:
+      consumes:
+      - application/json
+      description: 获取使用指定镜像的服务器列表
+      parameters:
+      - description: 镜像名称
+        in: query
+        name: image_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 服务器列表
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取影响的服务器列表
+      tags:
+      - 镜像管理
+  /images/check-updates:
+    get:
+      consumes:
+      - application/json
+      description: 检查所有管理的镜像是否有新版本
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 镜像更新状态映射
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 检查镜像是否有更新
+      tags:
+      - 镜像管理
+  /images/pull:
+    post:
+      consumes:
+      - application/json
+      description: 用户主动触发镜像下载操作
+      parameters:
+      - description: 镜像信息 {\
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 拉取状态
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 手动拉取Docker镜像
+      tags:
+      - 镜像管理
+  /images/status:
+    get:
+      consumes:
+      - application/json
+      description: 获取ARK服务器镜像的状态信息（镜像在后台异步拉取）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 镜像状态信息
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取镜像状态
+      tags:
+      - 服务器管理
+  /images/update:
+    post:
+      consumes:
+      - application/json
+      description: 更新指定镜像并处理相关容器
+      parameters:
+      - description: 镜像信息 {\
+        in: body
+        name: request
+        required: true
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新状态
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 更新Docker镜像
+      tags:
+      - 镜像管理
+  /profile:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前登录用户的基本信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 用户信息
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/models.UserResponse'
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取当前用户信息
+      tags:
+      - 用户
+  /servers:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前用户的所有服务器列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 服务器列表
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/models.ServerResponse'
+              type: array
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取服务器列表
+      tags:
+      - 服务器管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的ARK服务器配置
+      parameters:
+      - description: 服务器配置
+        in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/models.ServerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: 创建成功
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/models.ServerResponse'
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 创建新服务器
+      tags:
+      - 服务器管理
+  /servers/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 删除指定的服务器配置（仅允许删除已停止的服务器）
+      parameters:
+      - description: 服务器ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 删除成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 服务器不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 删除服务器
+      tags:
+      - 服务器管理
+    get:
+      consumes:
+      - application/json
+      description: 根据ID获取指定服务器的详细信息（包括配置文件内容）
+      parameters:
+      - description: 服务器ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 服务器信息（包含配置文件）
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/models.ServerResponse'
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 服务器不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取服务器详情
+      tags:
+      - 服务器管理
+    put:
+      consumes:
+      - application/json
+      description: 更新指定服务器的配置信息（包括配置文件）
+      parameters:
+      - description: 服务器ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新的服务器配置（可包含配置文件内容）
+        in: body
+        name: server
+        required: true
+        schema:
+          $ref: '#/definitions/models.ServerUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 更新成功
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/models.ServerResponse'
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 服务器不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 更新服务器配置
+      tags:
+      - 服务器管理
+  /servers/{id}/rcon:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定服务器的RCON连接信息（包括密码）
+      parameters:
+      - description: 服务器ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: RCON信息
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 服务器不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 获取服务器RCON信息
+      tags:
+      - 服务器管理
+  /servers/{id}/recreate:
+    post:
+      consumes:
+      - application/json
+      description: 使用新镜像重建指定服务器的容器
+      parameters:
+      - description: 服务器ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 重建状态
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 服务器不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 重建服务器容器
+      tags:
+      - 服务器管理
+  /servers/{id}/start:
+    post:
+      consumes:
+      - application/json
+      description: 启动指定的ARK服务器
+      parameters:
+      - description: 服务器ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 启动成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 服务器不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 启动服务器
+      tags:
+      - 服务器管理
+  /servers/{id}/stop:
+    post:
+      consumes:
+      - application/json
+      description: 停止指定的ARK服务器
+      parameters:
+      - description: 服务器ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 停止成功
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: 请求错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: 未授权
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 服务器不存在
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 服务器错误
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: 停止服务器
+      tags:
+      - 服务器管理
+securityDefinitions:
+  Bearer:
+    description: JWT token in the format "Bearer {token}"
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Dúvidas
+    url: https://github.com/ffrete-debug/ark-commander/discussions
+    about: Use discussions para perguntas
