@@ -138,8 +138,9 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 				})
 			}
 
-			// WebSocket 
-			r.GET("/ws/updates/:id", hub.HandleWebSocket)
+			// WebSocket (auth-protected — token via query param for browser WS clients)
+			protected.GET("/ws/updates/:id", hub.HandleWebSocket)
+			protected.GET("/ws/rcon/:id", websocket.HandleRCONWebSocket)
 		}
 	}
 }

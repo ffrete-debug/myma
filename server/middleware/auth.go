@@ -11,22 +11,28 @@ import (
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		var tokenString string
+
+		// Prefer Authorization header (standard for REST requests)
+		if authHeader := c.GetHeader("Authorization"); authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if !(len(parts) == 2 && parts[0] == "Bearer") {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization token format"})
+				c.Abort()
+				return
+			}
+			tokenString = parts[1]
+		} else if q := c.Query("token"); q != "" {
+			// Fallback: token via query param (required for browser WebSocket clients,
+			// which cannot set custom headers on the initial WS upgrade request)
+			tokenString = q
+		} else {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing authorization token"})
 			c.Abort()
 			return
 		}
 
-		// Bearer token
-		parts := strings.SplitN(authHeader, " ", 2)
-		if !(len(parts) == 2 && parts[0] == "Bearer") {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization token format"})
-			c.Abort()
-			return
-		}
-
-		claims, err := utils.ParseToken(parts[1])
+		claims, err := utils.ParseToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization token"})
 			c.Abort()
