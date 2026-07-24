@@ -10,6 +10,7 @@ import (
 	"ark-server-commander/database"
 	"ark-server-commander/models"
 	"ark-server-commander/service/docker_manager"
+	"ark-server-commander/service/rcon"
 	"ark-server-commander/utils"
 
 	"go.uber.org/zap"
@@ -377,6 +378,26 @@ func (s *ServerService) GetServerRCON(userID uint, serverID string) (map[string]
 		"rcon_port":         server.RCONPort,
 		"admin_password":    server.AdminPassword,
 	}, nil
+}
+
+// ExecuteRCONCommand executes an RCON command on the server
+func (s *ServerService) ExecuteRCONCommand(userID uint, serverID string, command string) (string, error) {
+	id, err := strconv.ParseUint(serverID, 10, 32)
+	if err != nil {
+		return "", fmt.Errorf("None Server ID")
+	}
+
+	var server models.Server
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&server).Error; err != nil {
+		return "", fmt.Errorf("Server not found")
+	}
+
+	output, err := rcon.ExecuteCommand("localhost", server.RCONPort, server.AdminPassword, command)
+	if err != nil {
+		return "", fmt.Errorf("RCON command failed: %w", err)
+	}
+
+	return output, nil
 }
 
 // UpdateServer Update Service
