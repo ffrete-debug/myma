@@ -7,7 +7,8 @@ import { Link } from '@/navigation';
 import { useAuthUser } from '@/stores/auth';
 import { useImageStatus, serversActions } from '@/stores/servers';
 import { ImageStatus } from '@/components/docker/ImageStatus';
-import { useEffect, useRef, useCallback } from 'react';
+import { ImageUpdateConfirmModal } from '@/components/docker/ImageUpdateConfirmModal';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Server, Monitor, Activity, Users } from 'lucide-react';
 import Cookies from 'js-cookie';
 
@@ -17,6 +18,8 @@ export default function HomePage() {
     const imageStatus = useImageStatus();
     const { getImageStatus } = serversActions;
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const [updateModalOpen, setUpdateModalOpen] = useState(false);
+    const [selectedImage, setSelectedImage] = useState('');
 
     const refreshImageStatus = useCallback(async () => {
         try { await getImageStatus(); }
@@ -43,17 +46,25 @@ export default function HomePage() {
         } catch (error) { console.error('Failed to download image:', error); }
     };
 
-    const handleUpdateImage = async (imageName: string) => {
+    const handleUpdateImage = (imageName: string) => {
+        setSelectedImage(imageName);
+        setUpdateModalOpen(true);
+    };
+
+    const handleConfirmUpdate = async () => {
         try {
             const token = Cookies.get('auth-token');
             const response = await fetch('/api/images/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ image_name: imageName })
+                body: JSON.stringify({ image_name: selectedImage })
             });
             if (!response.ok) throw new Error('Failed to update image');
             startPolling();
-        } catch (error) { console.error('Failed to update image:', error); }
+        } catch (error) {
+            console.error('Failed to update image:', error);
+        }
+        setUpdateModalOpen(false);
     };
 
     const handleCheckUpdates = async () => {
@@ -163,6 +174,12 @@ export default function HomePage() {
                     </Link>
                 ))}
             </div>
+            <ImageUpdateConfirmModal
+                imageName={selectedImage}
+                isOpen={updateModalOpen}
+                onClose={() => setUpdateModalOpen(false)}
+                onConfirm={handleConfirmUpdate}
+            />
         </div>
     );
 }
