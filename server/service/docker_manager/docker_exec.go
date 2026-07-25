@@ -192,3 +192,50 @@ func (dm *DockerManager) WriteFileToVolume(volumeName, volumeMount, destPath str
 
 	return nil
 }
+
+// BackupVolume creates a tar.gz archive of a Docker volume.
+// volumeName: the Docker volume name
+// backupDir: the host path to the backup directory (also mounted as /backup in container)
+// filename: the name of the backup file to create inside /backup
+func (dm *DockerManager) BackupVolume(volumeName, backupDir, filename string) error {
+	if err := dm.ensureAlpine(); err != nil {
+		return err
+	}
+
+	cmd := []string{"sh", "-c", fmt.Sprintf(
+		"tar czf /backup/%s -C /data .",
+		filename,
+	)}
+	binds := []string{
+		fmt.Sprintf("%s:/data", volumeName),
+		fmt.Sprintf("%s:/backup", backupDir),
+	}
+
+	cc := &container.Config{
+		Image: "alpine:latest",
+		Cmd:   cmd,
+	}
+	hc := &container.HostConfig{
+		Binds: binds,
+	}
+
+	resp, err := dm.client.ContainerCreate(dm.ctx, cc, hc, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("container create: %v", err)
+	}
+	cid := resp.ID
+	defer dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true})
+
+	if err := dm.client.ContainerStart(dm.ctx, cid, container.StartOptions{}); err != nil {
+		return fmt.Errorf("container start: %v", err)
+	}
+
+	waitCh, errCh := dm.client.ContainerWait(dm.ctx, cid, container.WaitConditionNotRunning)
+	select {
+	case e := <-errCh:
+		return fmt.Errorf("container wait: %v", e)
+	case <-waitCh:
+	}
+
+	return nil
+}

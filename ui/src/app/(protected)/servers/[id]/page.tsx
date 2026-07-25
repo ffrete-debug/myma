@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ArrowLeft, Map, Wifi, Lock, Users, RefreshCw, Play, Square, Edit, FileText } from 'lucide-react';
+import { Loader2, ArrowLeft, Map, Wifi, Lock, Users, RefreshCw, Play, Square, Edit, FileText, FolderPlus, Download, Trash2, RotateCcw, Clock } from 'lucide-react';
 import { serversActions } from '@/stores/servers';
 import { Server } from '@/stores/servers';
 import { RCONConsole } from '@/components/servers/RCONConsole';
@@ -23,6 +23,19 @@ export default function ServerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionInProgress, setActionInProgress] = useState<string>('');
+  const [backups, setBackups] = useState<Backup[]>([]);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupCreating, setBackupCreating] = useState(false);
+
+  interface Backup {
+    id: number;
+    server_id: number;
+    filename: string;
+    file_size: number;
+    status: string;
+    error: string;
+    created_at: string;
+  }
 
   const fetchServer = useCallback(async () => {
     try {
@@ -36,9 +49,22 @@ export default function ServerDetailPage() {
     }
   }, [serverId, t]);
 
+  const fetchBackups = useCallback(async () => {
+    try {
+      const res = await fetch('/api/backups', { credentials: 'same-origin' });
+      if (res.ok) {
+        const data = await res.json();
+        setBackups(data.data || []);
+      }
+    } catch {
+      // silently ignore
+    }
+  }, []);
+
   useEffect(() => {
     fetchServer();
-  }, [fetchServer]);
+    fetchBackups();
+  }, [fetchServer, fetchBackups]);
 
   useWebSocket(serverId, (msg) => {
     if (msg.type === 'update_status' && msg.data?.status) {
@@ -57,6 +83,57 @@ export default function ServerDetailPage() {
   const handleRestart = async () => {
     setActionInProgress('restart');
     try { await serversActions.restartServer(serverId); } finally { setActionInProgress(''); }
+  };
+
+  const handleCreateBackup = async () => {
+    setBackupCreating(true);
+    try {
+      const res = await fetch('/api/backups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ server_id: serverId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setBackups((prev) => [data.data, ...prev]);
+    } catch {
+      setError(t('backupFailed'));
+    } finally {
+      setBackupCreating(false);
+    }
+  };
+
+  const handleDeleteBackup = async (backupId: number) => {
+    if (!confirm(t('backupDeleteConfirm'))) return;
+    try {
+      const res = await fetch(`/api/backups/${backupId}`, { method: 'DELETE', credentials: 'same-origin' });
+      if (!res.ok) throw new Error(await res.text());
+      setBackups((prev) => prev.filter((b) => b.id !== backupId));
+    } catch {
+      setError(t('deleteFailed'));
+    }
+  };
+
+  const handleRestoreBackup = async (backupId: number) => {
+    if (!confirm(t('backupRestoreConfirm'))) return;
+    try {
+      const res = await fetch('/api/backups/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ backup_id: backupId, server_id: serverId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setError('');
+      setBackups((prev) => prev.filter((b) => b.id !== backupId));
+    } catch {
+      setError(t('backupFailed'));
+    }
+  };
+
+  const handleDownloadBackup = (filename: string) => {
+    window.open(`/api/backups/download/${encodeURIComponent(filename)}`, '_blank');
   };
 
   const getStatusVariant = (s: Server['status']): 'default' | 'destructive' | 'secondary' | 'outline' => {
@@ -178,6 +255,98 @@ export default function ServerDetailPage() {
       </Card>
 
       <RCONConsole serverId={serverId} serverStatus={server.status} />
+
+      <Card>
+        <CardHeader className="py-3">
+          <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+            <FolderPlus className="h-4 w-4" />
+            {t('backupList')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleCreateBackup}
+              disabled={backupCreating || backupLoading}
+            >
+              {backupCreating ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <FolderPlus className="h-3.5 w-3.5 mr-1" />}
+              {t('createBackup')}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fetchBackups}
+              disabled={backupLoading}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1 ${backupLoading ? 'animate-spin' : ''}`} />
+              {tCommon('refresh')}
+            </Button>
+          </div>
+
+          {backups.length === 0 ? (
+            <p className="text-sm text-gray-400">{t('backupNoBackups')}</p>
+          ) : (
+            <div className="space-y-2">
+              {backups.map((backup) => (
+                <div
+                  key={backup.id}
+                  className="flex items-center justify-between bg-muted/30 rounded-lg p-3 text-sm"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="font-mono text-xs truncate">{backup.filename}</div>
+                      <div className="text-xs text-gray-400">{backup.created_at}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Badge
+                      variant={
+                        backup.status === 'completed' ? 'default' :
+                        backup.status === 'in_progress' ? 'secondary' :
+                        'destructive'
+                      }
+                      className="text-xs"
+                    >
+                      {backup.status === 'in_progress' ? t('backupInProgress') :
+                       backup.status === 'completed' ? t('backupCompleted') :
+                       t('backupFailedStatus')}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleDownloadBackup(backup.filename)}
+                      title={t('backupDownload')}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                      onClick={() => handleRestoreBackup(backup.id)}
+                      title={t('backupRestore')}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleDeleteBackup(backup.id)}
+                      title={t('backupDelete')}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

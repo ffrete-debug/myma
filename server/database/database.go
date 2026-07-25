@@ -26,7 +26,7 @@ func InitDB() {
 	}
 
 	// Auto-migrate database schema
-	err = DB.AutoMigrate(&models.User{}, &models.Server{}, &models.AuditLog{}, &models.Player{})
+	err = DB.AutoMigrate(&models.User{}, &models.Server{}, &models.AuditLog{}, &models.Player{}, &models.Backup{})
 	if err != nil {
 		utils.Fatal("Database migration failed", zap.Error(err))
 	}

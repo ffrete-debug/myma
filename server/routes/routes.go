@@ -94,6 +94,16 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			// Bulk Server Operations
 			protected.POST("/servers/bulk", servers.BulkServerAction)
 
+			// Backup Management
+			backupRoutes := protected.Group("/backups")
+			{
+				backupRoutes.GET("", servers.ListBackups)
+				backupRoutes.POST("", servers.CreateBackup)
+				backupRoutes.DELETE("/:id", servers.DeleteBackup)
+				backupRoutes.GET("/download/:filename", servers.DownloadBackup)
+				backupRoutes.POST("/restore", servers.RestoreBackup)
+			}
+
 			// Player Management
 			playerRoutes := protected.Group("/servers/:id/players")
 			{
