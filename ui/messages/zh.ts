@@ -51,6 +51,7 @@ export default {
     servers: '服务器管理',
     players: '玩家管理',
     logs: '日志监控',
+    auditLogs: '审计日志',
     settings: '设置',
     logout: '退出登录',
     welcome: '欢迎',
@@ -1015,5 +1016,24 @@ BabyImprintAmountMultiplier=1.0`
     fetched: '成功获取玩家信息',
     fetchFailed: '获取玩家信息失败',
     joinedAt: '加入时间'
+  },
+
+  // 审计日志
+  auditLogs: {
+    title: '审计日志',
+    noLogs: '暂无审计日志条目',
+    fetchFailed: '加载审计日志失败',
+    filterUserID: '用户ID',
+    filterUserIDPlaceholder: '按用户ID筛选',
+    filterAction: '操作',
+    filterActionPlaceholder: '按操作筛选',
+    filterStartDate: '开始日期',
+    filterEndDate: '结束日期',
+    userID: '用户ID',
+    action: '操作',
+    resource: '资源',
+    detail: '详情',
+    ip: 'IP地址',
+    time: '时间'
   }
 }

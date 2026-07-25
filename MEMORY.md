@@ -42,3 +42,10 @@ ARK Server Commander - Web UI for managing ARK: Survival Evolved servers in Dock
 2. **Real-time WebSocket Status** (task #2) — WebSocket server status updates in UI
 3. **RCON Integration** — Full RCON console + HTTP/WS endpoints
 4. **Backup Restore** — Full restore logic with `RestoreVolume` method
+## Completed Tasks (since last update)
+5. **Docker Deployment** — Fixed Dockerfile (go.sum COPY path, npm install vs npm ci), built & verified in /tmp/myma-test, docker-compose up, health check pass
+6. **Player Management UI** — Enabled quick link on home page, created API proxy routes for players endpoints
+7. **WebSocket Log Tailing** — Added HandleLogsWebSocket handler, StreamContainerLogs to docker manager, frontend WS client with polling fallback
+8. **Audit Log Viewer** — Full backend (GET /api/audit-logs with pagination/filtering) + frontend page at /audit-logs with filters, nav link, i18n
+
+All changes committed and pushed to origin/main (07b2d20).

@@ -53,6 +53,7 @@ export default {
     plugins: 'Plugins',
     players: 'Player Management',
     logs: 'Log Monitoring',
+    auditLogs: 'Audit Logs',
     settings: 'Settings',
     logout: 'Logout',
     welcome: 'Welcome',
@@ -1029,5 +1030,24 @@ BabyImprintAmountMultiplier=1.0`
     fetched: 'Players fetched successfully',
     fetchFailed: 'Failed to fetch players',
     joinedAt: 'Joined At'
+  },
+
+  // Audit logs
+  auditLogs: {
+    title: 'Audit Logs',
+    noLogs: 'No audit log entries found',
+    fetchFailed: 'Failed to load audit logs',
+    filterUserID: 'User ID',
+    filterUserIDPlaceholder: 'Filter by user ID',
+    filterAction: 'Action',
+    filterActionPlaceholder: 'Filter by action',
+    filterStartDate: 'Start Date',
+    filterEndDate: 'End Date',
+    userID: 'User ID',
+    action: 'Action',
+    resource: 'Resource',
+    detail: 'Detail',
+    ip: 'IP Address',
+    time: 'Time'
   }
 }

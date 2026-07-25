@@ -10,6 +10,9 @@ import { serversActions } from '@/stores/servers';
 import { Server } from '@/stores/servers';
 import Cookies from 'js-cookie';
 
+const MAX_LOG_CHARS = 500_000;
+const MAX_LOG_LINES = 10_000;
+
 export default function ServerLogsPage() {
   const t = useTranslations('servers');
   const tCommon = useTranslations('common');
@@ -23,8 +26,13 @@ export default function ServerLogsPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [tailLines, setTailLines] = useState(200);
   const [error, setError] = useState('');
+  const [wsConnected, setWsConnected] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const onWSMessageRef = useRef<((line: string) => void) | null>(null);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -43,6 +51,59 @@ export default function ServerLogsPage() {
     }
   }, [serverId, tailLines]);
 
+  const appendLogLine = useCallback((line: string) => {
+    setLogs(prev => {
+      const next = prev ? prev + '\n' + line : line;
+      // Cap log size to prevent unbounded memory growth.
+      if (next.length > MAX_LOG_CHARS) {
+        const cut = next.length - MAX_LOG_CHARS;
+        const idx = next.indexOf('\n', cut);
+        return idx >= 0 ? next.slice(idx + 1) : next;
+      }
+      const lines = next.split('\n');
+      if (lines.length > MAX_LOG_LINES) {
+        return lines.slice(lines.length - MAX_LOG_LINES).join('\n');
+      }
+      return next;
+    });
+  }, []);
+
+  const connectWS = useCallback(() => {
+    if (!autoRefresh) return;
+    const token = Cookies.get('auth-token');
+    if (!token) return;
+
+    const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const host = typeof window !== 'undefined' ? window.location.host : '';
+    const url = `${proto}://${host}/api/ws/logs/${serverId}?token=${encodeURIComponent(token)}`;
+
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+    setWsConnected(true);
+
+    ws.onmessage = (event) => {
+      if (typeof event.data === 'string') {
+        appendLogLine(event.data);
+        reconnectAttemptsRef.current = 0;
+      }
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null;
+      setWsConnected(false);
+      if (autoRefresh) {
+        // Exponential backoff capped at 30s.
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30_000);
+        reconnectAttemptsRef.current++;
+        reconnectTimerRef.current = setTimeout(connectWS, delay);
+      }
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+  }, [serverId, autoRefresh, appendLogLine]);
+
   const fetchServer = useCallback(async () => {
     try {
       const srv = await serversActions.getServer(serverId);
@@ -56,18 +117,36 @@ export default function ServerLogsPage() {
     fetchServer();
   }, [fetchServer]);
 
+  // Initial log load via HTTP fetch.
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
 
+  // WebSocket for live tailing (after initial load).
   useEffect(() => {
-    if (autoRefresh) {
+    if (!loading && autoRefresh) {
+      connectWS();
+    }
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+      }
+    };
+  }, [connectWS, loading, autoRefresh]);
+
+  // Polling fallback for initial load and reconnection.
+  useEffect(() => {
+    if (autoRefresh && !wsConnected) {
       intervalRef.current = setInterval(fetchLogs, 3000);
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [autoRefresh, fetchLogs]);
+  }, [autoRefresh, wsConnected, fetchLogs]);
 
   useEffect(() => {
     if (logEndRef.current) {
@@ -96,6 +175,11 @@ export default function ServerLogsPage() {
             {t(`card.${server.status}`)}
           </span>
         )}
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+          wsConnected ? 'badge-success' : 'badge-warning'
+        }`}>
+          {wsConnected ? 'Live' : 'Polling'}
+        </span>
       </div>
 
       {server && (
