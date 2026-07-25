@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Server } from '@/stores/servers';
+import { useWebSocket } from '@/hooks/use-websocket';
+import { serversActions } from '@/stores/servers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +37,12 @@ export function ServerCard({
 }: ServerCardProps) {
   const t = useTranslations('servers');
   const [showPassword, setShowPassword] = useState(false);
+
+  useWebSocket(server.id, (msg) => {
+    if (msg.type === 'update_status' && msg.data?.status) {
+      serversActions.updateServerStatus(server.id, msg.data.status as Server['status'])
+    }
+  });
 
   const getMapDisplayName = (mapName: string) => {
     const mapKey = `edit.maps.${mapName}`;

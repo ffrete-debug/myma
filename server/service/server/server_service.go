@@ -12,6 +12,7 @@ import (
 	"ark-server-commander/service/docker_manager"
 	"ark-server-commander/service/rcon"
 	"ark-server-commander/utils"
+	"ark-server-commander/websocket"
 
 	"go.uber.org/zap"
 )
@@ -24,6 +25,15 @@ type ServerService struct {
 // NewServerService CreateServer Service
 func NewServerService() *ServerService {
 	return &ServerService{}
+}
+
+// broadcastStatus sends a WebSocket status update for this server.
+func (s *ServerService) broadcastStatus(serverID uint, status string) {
+	if hub := websocket.GetGlobalHub(); hub != nil {
+		hub.BroadcastToServer(serverID, map[string]interface{}{
+			"status": status,
+		})
+	}
 }
 
 // getUserMutex User，UserServers
@@ -104,6 +114,9 @@ func (s *ServerService) GetServers(userID uint, page, limit int) ([]models.Serve
 				if realTimeStatus != server.Status {
 					go func(s models.Server, status string) {
 						database.DB.Model(&s).Update("status", status)
+						if hub := websocket.GetGlobalHub(); hub != nil {
+							hub.BroadcastToServer(s.ID, map[string]interface{}{"status": status})
+						}
 					}(server, realTimeStatus)
 				}
 			}
@@ -112,6 +125,9 @@ func (s *ServerService) GetServers(userID uint, page, limit int) ([]models.Serve
 			realTimeStatus = "stopped"
 			go func(s models.Server) {
 				database.DB.Model(&s).Update("status", "stopped")
+				if hub := websocket.GetGlobalHub(); hub != nil {
+					hub.BroadcastToServer(s.ID, map[string]interface{}{"status": "stopped"})
+				}
 			}(server)
 		}
 
@@ -644,6 +660,7 @@ func (s *ServerService) StartServer(userID uint, serverID string) error {
 		if err := s.startServerAsync(server, dockerManager, containerName); err != nil {
 			utils.Error("Start server ", zap.Error(err))
 			database.DB.Model(&server).Update("status", "stopped")
+			s.broadcastStatus(server.ID, "stopped")
 		}
 	}()
 
@@ -736,6 +753,7 @@ func (s *ServerService) startServerAsync(server models.Server, dockerManager *do
 			if err := database.DB.Model(&server).Update("status", "running").Error; err != nil {
 				utils.Error("Update Service Status running ", zap.Error(err))
 			}
+			s.broadcastStatus(server.ID, "running")
 			return nil
 		}
 	}
@@ -796,11 +814,13 @@ func (s *ServerService) stopServerAsync(server models.Server, dockerManager *doc
 	if err != nil {
 		utils.Error(" ", zap.Error(err))
 		database.DB.Model(&server).Update("status", "stopped")
+		s.broadcastStatus(server.ID, "stopped")
 		return
 	}
 
 	if !containerExists {
 		database.DB.Model(&server).Update("status", "stopped")
+		s.broadcastStatus(server.ID, "stopped")
 		return
 	}
 
@@ -826,6 +846,7 @@ func (s *ServerService) stopServerAsync(server models.Server, dockerManager *doc
 	if err := database.DB.Model(&server).Update("status", "stopped").Error; err != nil {
 		utils.Error("Update Service Status stopped ", zap.Error(err))
 	}
+	s.broadcastStatus(server.ID, "stopped")
 }
 
 // ValidateRequiredImages Start serverYesNo

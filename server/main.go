@@ -77,6 +77,9 @@ func main() {
 	updateHub := websocket.NewHub()
 	go updateHub.Run()
 
+	// Set the global hub reference so services can broadcast status changes
+	websocket.SetGlobalHub(updateHub)
+
 	// Initialize update service
 	updateService := update.NewUpdateService(database.GetDB(), updateHub)
 

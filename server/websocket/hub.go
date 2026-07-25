@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -60,6 +61,8 @@ func (h *Hub) Run() {
 	}
 }
 
+// BroadcastToServer sends a message only to clients subscribed to the given serverID.
+// Client.ID is the server ID they registered with via HandleWebSocket.
 func (h *Hub) BroadcastToServer(serverID uint, data interface{}) {
 	msg := map[string]interface{}{
 		"type":      "update_status",
@@ -67,7 +70,46 @@ func (h *Hub) BroadcastToServer(serverID uint, data interface{}) {
 		"data":      data,
 	}
 	bytes, _ := json.Marshal(msg)
-	h.broadcast <- bytes
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, client := range h.clients {
+		if client.ID == fmt.Sprintf("%d", serverID) {
+			select {
+			case client.Send <- bytes:
+			default:
+			}
+		}
+	}
+}
+
+// BroadcastToAll sends a message to every connected WebSocket client.
+func (h *Hub) BroadcastToAll(data interface{}) {
+	bytes, _ := json.Marshal(data)
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, client := range h.clients {
+		select {
+		case client.Send <- bytes:
+		default:
+		}
+	}
+}
+
+var (
+	globalHub *Hub
+)
+
+// SetGlobalHub sets the global hub instance used for broadcasting
+// server status changes across WebSocket connections.
+func SetGlobalHub(h *Hub) {
+	globalHub = h
+}
+
+// GetGlobalHub returns the global hub, or nil if not yet initialized.
+func GetGlobalHub() *Hub {
+	return globalHub
 }
 
 var upgrader = websocket.Upgrader{
