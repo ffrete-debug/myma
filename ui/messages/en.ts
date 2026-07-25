@@ -880,6 +880,24 @@ EggHatchSpeedMultiplier=1.0
 BabyCuddleIntervalMultiplier=1.0
 BabyCuddleGracePeriodMultiplier=1.0
 BabyImprintAmountMultiplier=1.0`
+    },
+
+    // RCON console panel
+    rcon: {
+      console: 'RCON Console',
+      connected: 'Connected',
+      disconnected: 'Disconnected',
+      connecting: 'Connecting...',
+      serverOffline: 'Server appears to be offline — RCON unavailable',
+      expand: 'Expand console',
+      collapse: 'Collapse console',
+      connectingHint: 'Open a terminal session to run remote admin commands on this ARK server.',
+      commandHint: 'Type a command and press Enter to send. Server must be running with RCON enabled.',
+      connectionError: 'Connection error — retrying...',
+      invalidResponse: 'Received an invalid response from the server',
+      sendFailed: 'Failed to send command',
+      closePanel: 'Close terminal',
+      outputTruncated: '\n... output truncated ...'
     }
   },
 

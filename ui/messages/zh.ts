@@ -866,6 +866,24 @@ EggHatchSpeedMultiplier=1.0
 BabyCuddleIntervalMultiplier=1.0
 BabyCuddleGracePeriodMultiplier=1.0
 BabyImprintAmountMultiplier=1.0`
+    },
+
+    // RCON 控制台
+    rcon: {
+      console: 'RCON 控制台',
+      connected: '已连接',
+      disconnected: '未连接',
+      connecting: '连接中...',
+      serverOffline: '服务器似乎处于离线状态 — RCON 不可用',
+      expand: '展开控制台',
+      collapse: '收起控制台',
+      connectingHint: '开启终端会话以在此 ARK 服务器上运行远程管理命令。',
+      commandHint: '输入命令并按回车发送。服务器必须正在运行且已启用 RCON。',
+      connectionError: '连接错误 — 正在重试...',
+      invalidResponse: '收到来自服务器的无效响应',
+      sendFailed: '命令发送失败',
+      closePanel: '关闭终端',
+      outputTruncated: '\n... 输出已截断 ...'
     }
   },
 

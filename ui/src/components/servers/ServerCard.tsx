@@ -12,7 +12,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Play, Square, Loader2, Info, Edit, Trash2, Wifi, Lock, Eye, EyeOff, Copy, RefreshCw, Map,
+  Play, Square, Loader2, Info, Edit, Trash2, Wifi, Lock, Eye, EyeOff, Copy, RefreshCw, Map, Terminal,
 } from 'lucide-react';
 
 interface ServerCardProps {
@@ -24,11 +24,12 @@ interface ServerCardProps {
   onEdit: (server: Server) => void;
   onDelete: (server: Server) => void;
   onViewLogs?: (server: Server) => void;
+  onViewDetail?: (server: Server) => void;
   mapClickable?: boolean;
 }
 
 export function ServerCard({
-  server, canStartServer, onStart, onStop, onRestart, onEdit, onDelete, onViewLogs, mapClickable,
+  server, canStartServer, onStart, onStop, onRestart, onEdit, onDelete, onViewLogs, onViewDetail, mapClickable,
 }: ServerCardProps) {
   const t = useTranslations('servers');
   const [showPassword, setShowPassword] = useState(false);
@@ -72,6 +73,7 @@ export function ServerCard({
               iconBtn(<Loader2 className="h-4 w-4 animate-spin" />, undefined, 'text-blue-600', true)
             )}
             {server.status === 'running' && iconBtn(<RefreshCw className="h-4 w-4" />, () => onRestart(server), 'text-orange-600 hover:text-orange-700 hover:bg-orange-50')}
+            {onViewDetail && iconBtn(<Terminal className="h-4 w-4" />, () => onViewDetail(server), 'text-purple-600 hover:text-purple-700 hover:bg-purple-50')}
             {iconBtn(<Edit className="h-4 w-4" />, () => onEdit(server), 'text-blue-600 hover:text-blue-700 hover:bg-blue-50')}
             <Popover>
               <PopoverTrigger asChild>

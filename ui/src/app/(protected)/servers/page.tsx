@@ -41,6 +41,10 @@ export default function ServersPage() {
     router.push(`/servers/${server.id}/edit`);
   };
 
+  const handleViewDetail = (server: Server) => {
+    router.push(`/servers/${server.id}`);
+  };
+
   const handleViewLogs = (server: Server) => {
     router.push(`/servers/${server.id}/logs`);
   };
@@ -154,6 +158,7 @@ export default function ServersPage() {
               onEdit={handleEditServer}
               onDelete={handleDeleteServer}
               onViewLogs={handleViewLogs}
+              onViewDetail={handleViewDetail}
               mapClickable
             />
           ))}
