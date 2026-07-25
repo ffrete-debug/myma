@@ -17,12 +17,12 @@ func (dm *DockerManager) CreateVolume(serverID uint) (string, error) {
 	pluginsVolumeName := utils.GetServerPluginsVolumeName(serverID)
 
 	// Create
-	if err := dm.createSingleVolume(volumeName); err != nil {
+	if err := dm.CreateSingleVolume(volumeName); err != nil {
 		return "", fmt.Errorf("Create : %v", err)
 	}
 
 	// CreatePlugins
-	if err := dm.createSingleVolume(pluginsVolumeName); err != nil {
+	if err := dm.CreateSingleVolume(pluginsVolumeName); err != nil {
 		// PluginsVolume creation failed，Create
 		dm.RemoveVolume(serverID)
 		return "", fmt.Errorf("CreatePlugins : %v", err)
@@ -32,10 +32,10 @@ func (dm *DockerManager) CreateVolume(serverID uint) (string, error) {
 	return volumeName, nil
 }
 
-// createSingleVolume CreateDocker
-// volumeName: 
+// CreateSingleVolume CreateDocker
+// volumeName:
 // : Error
-func (dm *DockerManager) createSingleVolume(volumeName string) error {
+func (dm *DockerManager) CreateSingleVolume(volumeName string) error {
 	// YesNo
 	exists, err := dm.VolumeExists(volumeName)
 	if err != nil {
@@ -69,12 +69,12 @@ func (dm *DockerManager) RemoveVolume(serverID uint) error {
 	pluginsVolumeName := utils.GetServerPluginsVolumeName(serverID)
 
 	// Delete
-	if err := dm.removeSingleVolume(volumeName); err != nil {
+	if err := dm.RemoveSingleVolume(volumeName); err != nil {
 		return err
 	}
 
 	// DeletePlugins
-	if err := dm.removeSingleVolume(pluginsVolumeName); err != nil {
+	if err := dm.RemoveSingleVolume(pluginsVolumeName); err != nil {
 		// PluginsVolume deletion failed，
 		utils.Warn("DeletePlugins ", zap.String("volume", pluginsVolumeName), zap.Error(err))
 	}
@@ -82,10 +82,10 @@ func (dm *DockerManager) RemoveVolume(serverID uint) error {
 	return nil
 }
 
-// removeSingleVolume DeleteDocker
-// volumeName: 
+// RemoveSingleVolume DeleteDocker
+// volumeName:
 // : Error
-func (dm *DockerManager) removeSingleVolume(volumeName string) error {
+func (dm *DockerManager) RemoveSingleVolume(volumeName string) error {
 	// YesNo
 	exists, err := dm.VolumeExists(volumeName)
 	if err != nil {

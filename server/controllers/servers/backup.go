@@ -7,11 +7,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"ark-server-commander/database"
 	"ark-server-commander/middleware"
 	"ark-server-commander/models"
 	"ark-server-commander/service/backup"
+	arkDocker "ark-server-commander/service/docker_manager"
+	arkServer "ark-server-commander/service/server"
 	"ark-server-commander/utils"
 
 	"github.com/gin-gonic/gin"
@@ -198,13 +201,118 @@ func RestoreBackup(c *gin.Context) {
 }
 
 func restoreBackupAsync(backup models.Backup, server models.Server) {
-	// TODO: implement full restore logic
+	defer func() {
+		if r := recover(); r != nil {
+			database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+				"status": "failed",
+				"error":  fmt.Sprintf("panic: %v", r),
+			})
+		}
+	}()
+
+	// Update status to in_progress
+	database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+		"status": "in_progress",
+	})
+
+	dm, err := arkDocker.GetDockerManager()
+	if err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  err.Error(),
+		})
+		return
+	}
+
 	// 1. Stop the server if running
+	if server.Status == "running" {
+		svc := arkServer.NewServerService()
+		if err := svc.StopServer(backup.UserID, strconv.FormatUint(uint64(server.ID), 10)); err != nil {
+			database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+				"status": "failed",
+				"error":  "stop server: " + err.Error(),
+			})
+			return
+		}
+		for i := 0; i < 30; i++ {
+			time.Sleep(1 * time.Second)
+			var s models.Server
+			if err := database.DB.Where("id = ?", server.ID).First(&s).Error; err == nil && s.Status == "stopped" {
+				break
+			}
+		}
+	}
+
+	volumeName := utils.GetServerVolumeName(server.ID)
+	backupDirAbs, _ := filepath.Abs("backups")
+
 	// 2. Remove existing volume
+	if err := dm.RemoveSingleVolume(volumeName); err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  "remove volume: " + err.Error(),
+		})
+		return
+	}
+
 	// 3. Create new volume
+	if err := dm.CreateSingleVolume(volumeName); err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  "create volume: " + err.Error(),
+		})
+		return
+	}
+
 	// 4. Extract backup tar into new volume
-	// 5. Recreate container
-	// 6. Start container
+	if err := dm.RestoreVolume(volumeName, backupDirAbs, backup.Filename); err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  "restore volume: " + err.Error(),
+		})
+		return
+	}
+
+	// 5 & 6. Recreate container and start
+	containerName := utils.GetServerContainerName(server.ID)
+	if err := dm.RemoveContainer(containerName); err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  "remove container: " + err.Error(),
+		})
+		return
+	}
+
+	_, err = dm.CreateContainer(
+		server.ID,
+		server.Identifier,
+		server.Port,
+		server.QueryPort,
+		server.RCONPort,
+		server.AdminPassword,
+		server.Map,
+		server.GameModIds,
+		server.AutoRestart,
+	)
+	if err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  "create container: " + err.Error(),
+		})
+		return
+	}
+
+	if err := dm.StartContainer(containerName); err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  "start container: " + err.Error(),
+		})
+		return
+	}
+
 	// 7. Update backup status with result
-	utils.Infof("Restore backup %d for server %d (not yet fully implemented)", backup.ID, server.ID)
+	database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+		"status": "completed",
+	})
+	utils.Infof("Restore backup %d for server %d completed", backup.ID, server.ID)
 }
