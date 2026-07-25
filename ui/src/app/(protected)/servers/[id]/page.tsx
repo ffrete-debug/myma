@@ -10,6 +10,7 @@ import { Loader2, ArrowLeft, Map, Wifi, Lock, Users, RefreshCw, Play, Square, Ed
 import { serversActions } from '@/stores/servers';
 import { Server } from '@/stores/servers';
 import { RCONConsole } from '@/components/servers/RCONConsole';
+import { useWebSocket } from '@/hooks/use-websocket';
 
 export default function ServerDetailPage() {
   const t = useTranslations('servers');
@@ -38,6 +39,12 @@ export default function ServerDetailPage() {
   useEffect(() => {
     fetchServer();
   }, [fetchServer]);
+
+  useWebSocket(serverId, (msg) => {
+    if (msg.type === 'update_status' && msg.data?.status) {
+      serversActions.updateServerStatus(serverId, msg.data.status as Server['status']);
+    }
+  });
 
   const handleStart = async () => {
     setActionInProgress('start');
