@@ -91,6 +91,9 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			serverRoutes.GET("/:id/logs", servers.GetServerLogs)
 			}
 
+			// Bulk Server Operations
+			protected.POST("/servers/bulk", servers.BulkServerAction)
+
 			// Player Management
 			playerRoutes := protected.Group("/servers/:id/players")
 			{

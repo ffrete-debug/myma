@@ -482,3 +482,89 @@ func RestartServer(c *gin.Context) {
 		"message": "Server restart command sent",
 	})
 }
+
+type BulkServerActionRequest struct {
+	ServerIDs []string `json:"server_ids" binding:"required,min=1"`
+	Action    string   `json:"action" binding:"required,oneof=start stop restart"`
+}
+
+type BulkServerActionResponse struct {
+	Action       string            `json:"action"`
+	Total        int               `json:"total"`
+	Success      int               `json:"success"`
+	Failed       int               `json:"failed"`
+	Results      []BulkResult      `json:"results"`
+}
+
+type BulkResult struct {
+	ServerID string `json:"server_id"`
+	Success  bool   `json:"success"`
+	Error    string `json:"error,omitempty"`
+}
+
+// BulkServerAction handles bulk start/stop/restart operations on multiple servers.
+// @Summary Bulk start/stop/restart servers
+// @Description Perform a bulk action (start, stop, or restart) on multiple servers
+// @Tags Server Management
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param body body BulkServerActionRequest true "Bulk action request"
+// @Success 200 {object} map[string]interface{} "Bulk action result"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 500 {object} map[string]string "Server error"
+// @Router /servers/bulk [post]
+func BulkServerAction(c *gin.Context) {
+	userID := c.GetUint("user_id")
+
+	var req BulkServerActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request", err.Error())
+		return
+	}
+
+	var results []BulkResult
+	successCount := 0
+	failedCount := 0
+
+	for _, serverID := range req.ServerIDs {
+		var err error
+		switch req.Action {
+		case "start":
+			err = serverService.StartServer(userID, serverID)
+		case "stop":
+			err = serverService.StopServer(userID, serverID)
+		case "restart":
+			_ = serverService.StopServer(userID, serverID)
+			err = serverService.StartServer(userID, serverID)
+		}
+
+		if err != nil {
+			failedCount++
+			results = append(results, BulkResult{
+				ServerID: serverID,
+				Success:  false,
+				Error:    err.Error(),
+			})
+		} else {
+			successCount++
+			results = append(results, BulkResult{
+				ServerID: serverID,
+				Success:  true,
+			})
+			middleware.Log.Log(userID, fmt.Sprintf("server.%s", req.Action), fmt.Sprintf("server:%s", serverID), "", c.ClientIP())
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Bulk action completed",
+		"data": BulkServerActionResponse{
+			Action:  req.Action,
+			Total:   len(req.ServerIDs),
+			Success: successCount,
+			Failed:  failedCount,
+			Results: results,
+		},
+	})
+}
