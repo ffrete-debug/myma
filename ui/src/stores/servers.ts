@@ -210,6 +210,9 @@ export const useServers = () => useServersStore((state) => state.servers);
 export const useServersIsLoading = () => useServersStore((state) => state.isLoading);
 export const useServersError = () => useServersStore((state) => state.error);
 export const useImageStatus = () => useServersStore((state) => state.imageStatus);
+export const useServersCurrentPage = () => useServersStore((state) => state.currentPage);
+export const useServersPageSize = () => useServersStore((state) => state.pageSize);
+export const useServersTotal = () => useServersStore((state) => state.totalServers);
 export const serversActions = useServersStore.getState().actions;
 
 export default useServersStore;

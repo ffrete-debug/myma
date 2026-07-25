@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useServers, serversActions, useServersIsLoading, useImageStatus } from '@/stores/servers';
+import { useServers, serversActions, useServersIsLoading, useImageStatus, useServersCurrentPage, useServersPageSize, useServersTotal } from '@/stores/servers';
 import { ServerCard } from '@/components/servers/ServerCard';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -24,9 +24,9 @@ export default function ServersPage() {
   const { fetchServers, getImageStatus, startServer, stopServer, restartServer, deleteServer, setPage } = serversActions;
   const isLoading = useServersIsLoading();
   const imageStatus = useImageStatus();
-  const currentPage = useServers((s) => s.currentPage);
-  const pageSize = useServers((s) => s.pageSize);
-  const totalServers = useServers((s) => s.totalServers);
+  const currentPage = useServersCurrentPage();
+  const pageSize = useServersPageSize();
+  const totalServers = useServersTotal();
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
