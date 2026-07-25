@@ -36,3 +36,9 @@ ARK Server Commander - Web UI for managing ARK: Survival Evolved servers in Dock
 - Created .gitignore for Go + Node.js build artifacts
 - Committed all setup files (2 commits)
 - Next session: user should use `skill` tool to load brainstorming before starting any new feature work
+
+## Completed Tasks
+1. **Player Management** (task #1) — All priority tasks completed
+2. **Real-time WebSocket Status** (task #2) — WebSocket server status updates in UI
+3. **RCON Integration** — Full RCON console + HTTP/WS endpoints
+4. **Backup Restore** — Full restore logic with `RestoreVolume` method
