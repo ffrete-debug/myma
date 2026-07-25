@@ -78,9 +78,9 @@ export function ImageUpdateConfirmModal({
         { image_name: imageName },
         { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
       );
-      if (!response.ok) throw new Error('Update failed');
+      if (response.status >= 400) throw new Error('Update failed');
       onConfirm();
-    } catch (err) {
+    } catch (_err) {
       setError(t('updateFailed'));
     } finally {
       setLoading(false);
