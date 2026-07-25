@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import Cookies from 'js-cookie';
 
-type MessageHandler = (data: { type: string; server_id: number; data: unknown }) => void;
+type MessageHandler = (data: { type: string; server_id: number; data: Record<string, unknown> }) => void;
 
 export function useWebSocket(
   serverId: string,
