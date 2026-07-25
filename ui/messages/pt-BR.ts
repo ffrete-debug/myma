@@ -243,6 +243,7 @@ export default {
     bulkStop: 'Parar em Lote',
     bulkRestart: 'Reiniciar em Lote',
     clearSelection: 'Limpar Seleção',
+    page: 'Página',
     // Backup e Restauração
     backup: 'Backup',
     restore: 'Restaurar',

@@ -62,15 +62,30 @@ func (s *ServerService) checkPortConflict(userID uint, serverID uint, port, quer
 }
 
 // GetServers UserServers
-func (s *ServerService) GetServers(userID uint) ([]models.ServerResponse, error) {
+func (s *ServerService) GetServers(userID uint, page, limit int) ([]models.ServerResponse, int64, error) {
 	var servers []models.Server
-	if err := database.DB.Where("user_id = ?", userID).Find(&servers).Error; err != nil {
-		return nil, fmt.Errorf("Get server list : %w", err)
+	var total int64
+
+	offset := (page - 1) * limit
+	if page < 1 {
+		page = 1
+		offset = 0
+	}
+	if limit < 1 {
+		limit = 20
+	}
+
+	if err := database.DB.Where("user_id = ?", userID).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("Count server list : %w", err)
+	}
+
+	if err := database.DB.Where("user_id = ?", userID).Order("created_at desc").Limit(limit).Offset(offset).Find(&servers).Error; err != nil {
+		return nil, 0, fmt.Errorf("Get server list : %w", err)
 	}
 
 	dockerManager, err := docker_manager.GetDockerManager()
 	if err != nil {
-		return nil, fmt.Errorf(" Docker Manager : %w", err)
+		return nil, 0, fmt.Errorf(" Docker Manager : %w", err)
 	}
 
 	var serverResponses []models.ServerResponse
@@ -120,7 +135,7 @@ func (s *ServerService) GetServers(userID uint) ([]models.ServerResponse, error)
 		})
 	}
 
-	return serverResponses, nil
+	return serverResponses, total, nil
 }
 
 // CreateServer Create a new server
@@ -940,7 +955,11 @@ func (s *ServerService) UpdateImage(imageName string, userID uint) ([]models.Ser
 func (s *ServerService) GetAffectedServers(imageName string, userID uint) ([]models.ServerResponse, error) {
 	// ARKServers
 	if imageName == "tbro98/ase-server:latest" {
-		return s.GetServers(userID)
+		servers, _, err := s.GetServers(userID, 1, 1000)
+		if err != nil {
+			return nil, err
+		}
+		return servers, nil
 	}
 
 	// ，

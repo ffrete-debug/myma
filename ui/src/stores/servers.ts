@@ -27,6 +27,9 @@ interface ServersState {
     isLoading: boolean;
     error: string | null;
     imageStatus: ImageStatus | null;
+    currentPage: number;
+    pageSize: number;
+    totalServers: number;
     actions: ServersActions;
 }
 
@@ -57,7 +60,8 @@ export interface ImageStatus {
 
 // Define server actions type
 interface ServersActions {
-    fetchServers: () => Promise<void>;
+    fetchServers: (page?: number, limit?: number) => Promise<void>;
+    setPage: (page: number, limit?: number) => void;
     createServer: (serverData: Partial<Server>) => Promise<Server>;
     updateServer: (serverId: string, updateData: Partial<Server>) => Promise<Server>;
     deleteServer: (serverId: string) => Promise<void>;
@@ -85,19 +89,31 @@ const useServersStore = create<ServersState>((set, get) => ({
     isLoading: false,
     error: null,
     imageStatus: null,
+    currentPage: 1,
+    pageSize: 20,
+    totalServers: 0,
     actions: {
-        fetchServers: async () => {
+        fetchServers: async (page = 1, limit = 20) => {
             if (get().isLoading) return;
-            set({ isLoading: true, error: null });
+            set({ isLoading: true, error: null, currentPage: page, pageSize: limit });
             try {
-                const response = await axios.get('/api/servers', { headers: getAuthHeaders() });
-                set({ servers: response.data.data || [] });
+                const response = await axios.get('/api/servers', {
+                    headers: getAuthHeaders(),
+                    params: { page, limit },
+                });
+                set({
+                    servers: response.data.data || [],
+                    totalServers: response.data.total || 0,
+                });
             } catch (error) {
                 set({ error: 'Failed to fetch server list' });
                 throw error;
             } finally {
                 set({ isLoading: false });
             }
+        },
+        setPage: (page, limit = 20) => {
+            get().actions.fetchServers(page, limit);
         },
         createServer: async (serverData) => {
             try {

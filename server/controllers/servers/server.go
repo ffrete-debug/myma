@@ -17,19 +17,24 @@ var serverService = server.NewServerService()
 
 // GetServers Get server list
 // @Summary Get server list
-// @Description Get all servers for the current user
+// @Description Get all servers for the current user with pagination
 // @Tags Server Management
 // @Accept json
 // @Produce json
 // @Security Bearer
-// @Success 200 {object} map[string][]models.ServerResponse "Server list"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Success 200 {object} map[string]interface{} "Server list with pagination"
 // @Failure 401 {object} map[string]string "Unauthorized"
 // @Failure 500 {object} map[string]string "Server error"
 // @Router /servers [get]
 func GetServers(c *gin.Context) {
 	userID := c.GetUint("user_id")
 
-	serverResponses, err := serverService.GetServers(userID)
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+
+	serverResponses, total, err := serverService.GetServers(userID, page, limit)
 	if err != nil {
 		utils.InternalError(c, "Internal server error", err.Error())
 		return
@@ -38,6 +43,9 @@ func GetServers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Operation successful",
 		"data":    serverResponses,
+		"total":   total,
+		"page":    page,
+		"limit":   limit,
 	})
 }
 

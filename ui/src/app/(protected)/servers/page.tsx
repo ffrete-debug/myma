@@ -7,7 +7,7 @@ import { ServerCard } from '@/components/servers/ServerCard';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ClosableAlert } from '@/components/ui/closable-alert';
-import { Plus, Loader2, Server as ServerIcon, AlertCircle, FileText, ChevronDown, Check, Play, Square, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, Server as ServerIcon, AlertCircle, FileText, ChevronDown, ChevronLeft, ChevronRight, Check, Play, Square, RefreshCw } from 'lucide-react';
 import { Server } from '@/stores/servers';
 import { useTranslations } from 'next-intl';
 import {
@@ -21,9 +21,12 @@ export default function ServersPage() {
   const tCommon = useTranslations('common');
   const router = useRouter();
   const servers = useServers();
-  const { fetchServers, getImageStatus, startServer, stopServer, restartServer, deleteServer } = serversActions;
+  const { fetchServers, getImageStatus, startServer, stopServer, restartServer, deleteServer, setPage } = serversActions;
   const isLoading = useServersIsLoading();
   const imageStatus = useImageStatus();
+  const currentPage = useServers((s) => s.currentPage);
+  const pageSize = useServers((s) => s.pageSize);
+  const totalServers = useServers((s) => s.totalServers);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -31,7 +34,7 @@ export default function ServersPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
-    fetchServers().catch(() => setError(t('getServerListFailed')));
+    fetchServers(1, 20).catch(() => setError(t('getServerListFailed')));
     getImageStatus();
   }, [fetchServers, getImageStatus, t]);
 
@@ -265,6 +268,31 @@ export default function ServersPage() {
             />
           ))}
         </div>
+        {totalServers > pageSize && (
+          <div className="flex items-center justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage <= 1 || isLoading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              {t('previous')}
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              {t('page')} {currentPage} / {Math.ceil(totalServers / pageSize)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage >= Math.ceil(totalServers / pageSize) || isLoading}
+            >
+              {t('next')}
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         </div>
       )}
 

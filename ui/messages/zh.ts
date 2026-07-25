@@ -241,6 +241,7 @@ export default {
     bulkStop: '批量停止',
     bulkRestart: '批量重启',
     clearSelection: '清除选择',
+    page: '页',
     // 备份与恢复
     backup: '备份',
     restore: '恢复',

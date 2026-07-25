@@ -243,6 +243,7 @@ export default {
     bulkStop: 'Bulk Stop',
     bulkRestart: 'Bulk Restart',
     clearSelection: 'Clear Selection',
+    page: 'Page',
     // Backup & Restore
     backup: 'Backup',
     restore: 'Restore',
