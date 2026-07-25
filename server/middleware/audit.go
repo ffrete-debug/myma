@@ -24,6 +24,11 @@ func NewAuditLogger(db *gorm.DB) *AuditLogger {
 }
 
 func (a *AuditLogger) Log(userID uint, action, resource, detail, ip string) {
+	// Nil-safe: tests that exercise handlers without booting the full app
+	// (and therefore without InitAudit wired up) would otherwise panic here.
+	if a == nil {
+		return
+	}
 	entry := models.AuditLog{
 		UserID:    userID,
 		Action:    action,
