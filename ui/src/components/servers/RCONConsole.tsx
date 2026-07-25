@@ -7,6 +7,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { ChevronDown, ChevronUp, Terminal as TerminalIcon } from 'lucide-react';
+import { applyInputEvent, type InputBuffer } from '@/lib/rcon-input';
 
 interface RCONConsoleProps {
   serverId: string;
@@ -148,74 +149,55 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
     ro.observe(el);
 
     term.onData((data) => {
-      // Reflection of typed input back to terminal is handled below; this is the canonical handler.
-      const code = data.charCodeAt(0);
       const tic = termRef.current;
       if (!tic) return;
 
-      if (code === 0x0d) { // Enter
-        const line = inputBufferRef.current;
-        tic.write('\r\n');
+      const prevInput: InputBuffer = {
+        text: inputBufferRef.current,
+        cursor: cursorPosRef.current,
+      };
+      const result = applyInputEvent(prevInput, data);
+
+      // Detect a cursor-delta for arrow / home / end movements so we can
+      // emit the proper ANSI cursor-move sequence instead of re-rendering
+      // the whole line (avoiding flicker at the caret).
+      if (result.buffer.cursor !== prevInput.cursor && result.buffer.text === prevInput.text) {
+        const delta = result.buffer.cursor - prevInput.cursor;
+        if (delta < 0) {
+          tic.write(`\x1b[${-delta}D`)
+        } else if (delta > 0) {
+          tic.write(`\x1b[${delta}C`)
+        }
+      } else if (result.buffer.text !== prevInput.text || result.buffer.cursor !== prevInput.cursor) {
+        // Text changed — redraw the visible line and clear any trailing char.
+        refreshInputLine(tic)
+        if (result.buffer.text.length < prevInput.text.length) {
+          tic.write('\x1b[K')
+        }
+      }
+
+      // Enter: flush the line to the WS. The input buffer is already cleared.
+      if (typeof result.submitted !== 'undefined') {
+        const line = result.submitted
+        tic.write('\r\n')
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           if (line.trim().length === 0) {
-            writePrompt(tic);
-            return;
+            writePrompt(tic)
+            return
           }
           try {
-            wsRef.current.send(line);
+            wsRef.current.send(line)
           } catch {
-            tic.writeln(t('sendFailed'));
+            tic.writeln(t('sendFailed'))
           }
         } else {
-          tic.writeln(t('connectionError'));
-          writePrompt(tic);
+          tic.writeln(t('connectionError'))
+          writePrompt(tic)
         }
-        inputBufferRef.current = '';
-        cursorPosRef.current = 0;
-      } else if (code === 0x7f) { // Backspace
-        const pos = cursorPosRef.current;
-        if (pos > 0) {
-          inputBufferRef.current = inputBufferRef.current.slice(0, pos - 1) + inputBufferRef.current.slice(pos);
-          cursorPosRef.current = pos - 1;
-          refreshInputLine(tic);
-          // Erase leftover trailing char at end of visible line.
-          tic.write(' \b');
-        }
-      } else if (code === 0x1b && data.length === 3) { // ESC [ C / ESC [ D — arrow left/right
-        const seq = data[2];
-        if (seq === 'D' && cursorPosRef.current > 0) {
-          cursorPosRef.current -= 1;
-          tic.write('\x1b[D');
-        } else if (seq === 'C' && cursorPosRef.current < inputBufferRef.current.length) {
-          cursorPosRef.current += 1;
-          tic.write('\x1b[C');
-        }
-      } else if (code === 0x1b && data.length === 3 && (data[2] === 'A' || data[2] === 'B')) {
-        // Up/Down arrows: no history yet — swallow to avoid weird cursor moves.
-      } else if (code === 0x1b && data.length === 6 && data[2] === '1' && data[3] === ';' && data[4] === '5' && (data[5] === 'C' || data[5] === 'D')) {
-        // Ctrl-Arrow: jump to start/end of current input.
-        if (data[5] === 'D') {
-          while (cursorPosRef.current > 0) { cursorPosRef.current -= 1; tic.write('\x1b[D'); }
-        } else {
-          while (cursorPosRef.current < inputBufferRef.current.length) { cursorPosRef.current += 1; tic.write('\x1b[C'); }
-        }
-      } else if (code === 0x15) { // Ctrl-U: clear line
-        inputBufferRef.current = '';
-        cursorPosRef.current = 0;
-        refreshInputLine(tic);
-        tic.write('\x1b[K');
-      } else if (code === 0x01 || code === 0x02) { // Ctrl-A / Ctrl-E
-        if (code === 0x01) {
-          while (cursorPosRef.current > 0) { cursorPosRef.current -= 1; tic.write('\x1b[D'); }
-        } else {
-          while (cursorPosRef.current < inputBufferRef.current.length) { cursorPosRef.current += 1; tic.write('\x1b[C'); }
-        }
-      } else if (code >= 0x20) { // Printable
-        const pos = cursorPosRef.current;
-        inputBufferRef.current = inputBufferRef.current.slice(0, pos) + data + inputBufferRef.current.slice(pos);
-        cursorPosRef.current = pos + data.length;
-        refreshInputLine(tic);
       }
+
+      inputBufferRef.current = result.buffer.text
+      cursorPosRef.current = result.buffer.cursor
     });
 
     return () => {

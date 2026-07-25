@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-export const locales = ['en', 'zh'] as const;
+export const locales = ['en', 'zh', 'pt-BR'] as const;
 export type Locale = typeof locales[number];
 export const defaultLocale: Locale = 'en';
 
