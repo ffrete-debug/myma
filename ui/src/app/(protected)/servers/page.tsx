@@ -7,7 +7,7 @@ import { ServerCard } from '@/components/servers/ServerCard';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ClosableAlert } from '@/components/ui/closable-alert';
-import { Plus, Loader2, Server as ServerIcon, AlertCircle, FileText, ChevronDown } from 'lucide-react';
+import { Plus, Loader2, Server as ServerIcon, AlertCircle, FileText, ChevronDown, Check, Play, Square, RefreshCw } from 'lucide-react';
 import { Server } from '@/stores/servers';
 import { useTranslations } from 'next-intl';
 import {
@@ -27,6 +27,8 @@ export default function ServersPage() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
     fetchServers().catch(() => setError(t('getServerListFailed')));
@@ -69,6 +71,42 @@ export default function ServersPage() {
   const handleStartServer = (server: Server) => startServer(server.id);
   const handleStopServer = (server: Server) => stopServer(server.id);
   const handleRestartServer = (server: Server) => restartServer(server.id);
+
+  const handleToggleSelect = (serverId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(serverId)) next.delete(serverId);
+      else next.add(serverId);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === servers.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(servers.map((s) => s.id)));
+    }
+  };
+
+  const handleBulkAction = async (action: 'start' | 'stop' | 'restart') => {
+    if (selectedIds.size === 0) return;
+    setBulkLoading(true);
+    try {
+      const res = await fetch('/api/servers/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ server_ids: Array.from(selectedIds), action }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSuccess(`${action.charAt(0).toUpperCase() + action.slice(1)} action completed`);
+      setSelectedIds(new Set());
+    } catch {
+      setError(`${action.charAt(0).toUpperCase() + action.slice(1)} action failed`);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   return (
     <div className="w-full max-w-none py-8">
@@ -128,6 +166,53 @@ export default function ServersPage() {
       {error && <ClosableAlert variant="destructive" className="mb-4" title={tCommon('error')} onClose={() => setError('')}>{error}</ClosableAlert>}
       {success && <ClosableAlert className="mb-4" title={tCommon('success')} onClose={() => setSuccess('')}>{success}</ClosableAlert>}
 
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex items-center gap-2 flex-wrap bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+            {selectedIds.size} {t('selected')}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-blue-700 border-blue-300 hover:bg-blue-100"
+            onClick={() => handleBulkAction('start')}
+            disabled={bulkLoading}
+          >
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            {t('bulkStart')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-red-700 border-red-300 hover:bg-red-100"
+            onClick={() => handleBulkAction('stop')}
+            disabled={bulkLoading}
+          >
+            <Square className="mr-1.5 h-3.5 w-3.5" />
+            {t('bulkStop')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-orange-700 border-orange-300 hover:bg-orange-100"
+            onClick={() => handleBulkAction('restart')}
+            disabled={bulkLoading}
+          >
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            {t('bulkRestart')}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-gray-500 hover:text-gray-700"
+            onClick={() => setSelectedIds(new Set())}
+            disabled={bulkLoading}
+          >
+            {t('clearSelection')}
+          </Button>
+        </div>
+      )}
+
       {isLoading && servers.length === 0 ? (
         <div className="text-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
@@ -146,7 +231,22 @@ export default function ServersPage() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 lg:gap-6">
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={servers.length > 0 && selectedIds.size === servers.length}
+                onChange={handleSelectAll}
+                className="h-4 w-4 rounded border-input text-primary focus:ring-primary cursor-pointer"
+              />
+              {t('selectAll')}
+            </label>
+            {selectedIds.size > 0 && (
+              <span className="text-xs text-gray-400">{t('bulkSelected', { count: selectedIds.size })}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 lg:gap-6">
           {servers.map((server) => (
             <ServerCard
               key={server.id}
@@ -160,8 +260,11 @@ export default function ServersPage() {
               onViewLogs={handleViewLogs}
               onViewDetail={handleViewDetail}
               mapClickable
+              selected={selectedIds.has(server.id)}
+              onToggleSelect={() => handleToggleSelect(server.id)}
             />
           ))}
+        </div>
         </div>
       )}
 

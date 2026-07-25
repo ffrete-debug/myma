@@ -26,10 +26,12 @@ interface ServerCardProps {
   onViewLogs?: (server: Server) => void;
   onViewDetail?: (server: Server) => void;
   mapClickable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function ServerCard({
-  server, canStartServer, onStart, onStop, onRestart, onEdit, onDelete, onViewLogs, onViewDetail, mapClickable,
+  server, canStartServer, onStart, onStop, onRestart, onEdit, onDelete, onViewLogs, onViewDetail, mapClickable, selected, onToggleSelect,
 }: ServerCardProps) {
   const t = useTranslations('servers');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,7 +60,18 @@ export function ServerCard({
   return (
     <Card className="h-full border-0 shadow-sm">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold">{server.session_name}</CardTitle>
+        <div className="flex items-start gap-2">
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={onToggleSelect}
+              className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-primary cursor-pointer"
+              aria-label={`Select ${server.session_name}`}
+            />
+          )}
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base font-semibold">{server.session_name}</CardTitle>
         {/* Badge + action buttons row */}
         <div className="flex items-center justify-between mt-1">
           <Badge variant={getStatusVariant(server.status)} className="text-xs px-2 py-0.5">
@@ -89,6 +102,8 @@ export function ServerCard({
             {onViewLogs && mapClickable && iconBtn(<Map className="h-4 w-4" />, () => onViewLogs(server), 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50')}
           </div>
         </div>
+        </div>
+      </div>
       </CardHeader>
       <CardContent className="pt-2 space-y-2">
         <div className="bg-muted/50 rounded-lg p-2.5">

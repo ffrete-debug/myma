@@ -235,7 +235,15 @@ export default {
     startServerFailed: 'Failed to start server, please try again later',
     stopServerFailed: 'Failed to stop server, please try again later',
     imageStatusError: 'Failed to get image status',
-    // Server card related
+    // Operações em lote
+    selected: 'selecionados',
+    selectAll: 'Selecionar Todos',
+    bulkSelected: '{count} servidor(es) selecionado(s)',
+    bulkStart: 'Iniciar em Lote',
+    bulkStop: 'Parar em Lote',
+    bulkRestart: 'Reiniciar em Lote',
+    clearSelection: 'Limpar Seleção',
+    // Relacionado ao card do servidor
     card: {
       startServer: 'Iniciar Servidor',
       stopServer: 'Parar Servidor',

@@ -233,6 +233,14 @@ export default {
     startServerFailed: '启动服务器失败，请稍后重试',
     stopServerFailed: '停止服务器失败，请稍后重试',
     imageStatusError: '获取镜像状态失败',
+    // 批量操作
+    selected: '已选择',
+    selectAll: '全选',
+    bulkSelected: '已选择 {count} 个服务器',
+    bulkStart: '批量启动',
+    bulkStop: '批量停止',
+    bulkRestart: '批量重启',
+    clearSelection: '清除选择',
     // 服务器卡片相关
     card: {
       startServer: '启动服务器',
