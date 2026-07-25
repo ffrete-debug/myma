@@ -35,6 +35,32 @@
   :root {
     color-scheme: dark;
   }
+  [data-theme="light"] {
+    color-scheme: light;
+    --color-background: #ffffff;
+    --color-foreground: #1e1e1e;
+    --color-card: #ffffff;
+    --color-card-foreground: #1e1e1e;
+    --color-popover: #ffffff;
+    --color-popover-foreground: #1e1e1e;
+    --color-primary: #007acc;
+    --color-primary-foreground: #ffffff;
+    --color-secondary: #f0f0f0;
+    --color-secondary-foreground: #1e1e1e;
+    --color-muted: #f0f0f0;
+    --color-muted-foreground: #6b7280;
+    --color-accent: #e0e7ff;
+    --color-accent-foreground: #007acc;
+    --color-destructive: #dc2626;
+    --color-destructive-foreground: #ffffff;
+    --color-success: #16a34a;
+    --color-success-foreground: #ffffff;
+    --color-warning: #fbbf24;
+    --color-warning-foreground: #1e1e1e;
+    --color-border: #d1d5db;
+    --color-input: #d1d5db;
+    --color-ring: #007acc;
+  }
   * {
     @apply border-border;
   }

@@ -6,6 +6,7 @@ import { Link, usePathname, useRouter } from '@/navigation';
 import { useIsAuthenticated, useAuthActions, useAuthIsInitialized } from '@/stores/auth';
 import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export default function ProtectedLayout({
   children,
@@ -75,6 +76,7 @@ export default function ProtectedLayout({
               </nav>
             </div>
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <Button variant="ghost" size="sm" className="h-8 text-muted-foreground hover:text-destructive" onClick={logout}>
                 <LogOut className="h-4 w-4 mr-1" /> Log out
               </Button>
