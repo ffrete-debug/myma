@@ -979,5 +979,28 @@ BabyImprintAmountMultiplier=1.0`
     saveSuccess: 'File saved successfully',
     extract: 'Extract',
     downloadZip: 'Download as ZIP'
+  },
+
+  // Players
+  players: {
+    title: 'Player Management',
+    description: 'View and manage online players for your ARK servers',
+    selectServer: 'Select Server',
+    serverIdLabel: 'Server ID',
+    serverIdPlaceholder: 'Enter server ID (e.g. 1)',
+    fetchPlayers: 'Fetch Players',
+    noOnlinePlayers: 'No online players found',
+    onlineNow: 'Online Now',
+    maxPlayers: 'Max Players',
+    server: 'Server',
+    session: 'Session',
+    playerName: 'Player Name',
+    status: 'Status',
+    online: 'Online',
+    playerHistory: 'Player History',
+    noHistory: 'No player history available',
+    fetched: 'Players fetched successfully',
+    fetchFailed: 'Failed to fetch players',
+    joinedAt: 'Joined At'
   }
 }

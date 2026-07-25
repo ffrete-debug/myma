@@ -979,5 +979,28 @@ BabyImprintAmountMultiplier=1.0`
     saveSuccess: 'Arquivo salvo com sucesso',
     extract: 'Extrair',
     downloadZip: 'Baixar como ZIP'
+  },
+
+  // Jogadores
+  players: {
+    title: 'Gerenciamento de Jogadores',
+    description: 'Visualize e gerencie os jogadores online dos seus servidores ARK',
+    selectServer: 'Selecionar Servidor',
+    serverIdLabel: 'ID do Servidor',
+    serverIdPlaceholder: 'Informe o ID do servidor (ex. 1)',
+    fetchPlayers: 'Buscar Jogadores',
+    noOnlinePlayers: 'Nenhum jogador online encontrado',
+    onlineNow: 'Online Agora',
+    maxPlayers: 'Máx. Jogadores',
+    server: 'Servidor',
+    session: 'Sessão',
+    playerName: 'Nome do Jogador',
+    status: 'Status',
+    online: 'Online',
+    playerHistory: 'Histórico de Jogadores',
+    noHistory: 'Nenhum histórico disponível',
+    fetched: 'Jogadores buscados com sucesso',
+    fetchFailed: 'Falha ao buscar jogadores',
+    joinedAt: 'Entrou Em'
   }
 }

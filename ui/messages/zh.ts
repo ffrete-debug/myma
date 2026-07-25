@@ -941,5 +941,52 @@ BabyImprintAmountMultiplier=1.0`
     usernameExists: '用户名已存在',
     serverNameExists: '服务器名称已存在',
     portInUse: '端口已被占用'
+  },
+
+  // 插件
+  plugins: {
+    title: '插件管理器',
+    selectServer: '选择一个服务器...',
+    selectServerHint: '在上方选择一个服务器来管理其插件',
+    root: '根目录',
+    upload: '上传',
+    newFolder: '新建文件夹',
+    folderNamePlaceholder: '文件夹名称',
+    rename: '重命名',
+    delete: '删除',
+    download: '下载',
+    refresh: '刷新',
+    uploading: '上传中...',
+    empty: '此文件夹为空',
+    dragDropHint: '拖放文件以上传',
+    confirmDelete: '删除 "{name}"?',
+    editing: '编辑中',
+    edit: '编辑',
+    saveSuccess: '文件保存成功',
+    extract: '解压',
+    downloadZip: '下载为 ZIP'
+  },
+
+  // 玩家
+  players: {
+    title: '玩家管理',
+    description: '查看并管理您的 ARK 服务器上的在线玩家',
+    selectServer: '选择服务器',
+    serverIdLabel: '服务器 ID',
+    serverIdPlaceholder: '输入服务器 ID（例如 1）',
+    fetchPlayers: '获取玩家',
+    noOnlinePlayers: '未找到在线玩家',
+    onlineNow: '在线',
+    maxPlayers: '最大玩家数',
+    server: '服务器',
+    session: '会话',
+    playerName: '玩家名称',
+    status: '状态',
+    online: '在线',
+    playerHistory: '玩家历史记录',
+    noHistory: '暂无玩家历史记录',
+    fetched: '成功获取玩家信息',
+    fetchFailed: '获取玩家信息失败',
+    joinedAt: '加入时间'
   }
 }

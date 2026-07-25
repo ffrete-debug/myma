@@ -3,6 +3,7 @@ package routes
 import (
 	"ark-server-commander/controllers/auth"
 	"ark-server-commander/controllers/images"
+	"ark-server-commander/controllers/player"
 	"ark-server-commander/controllers/plugins"
 	"ark-server-commander/controllers/rcon"
 	"ark-server-commander/controllers/servers"
@@ -88,6 +89,14 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			serverRoutes.GET("/:id/rcon", servers.GetServerRCON)
 			serverRoutes.POST("/:id/rcon/execute", rcon.ExecuteRCON)
 			serverRoutes.GET("/:id/logs", servers.GetServerLogs)
+			}
+
+			// Player Management
+			playerRoutes := protected.Group("/servers/:id/players")
+			{
+				playerRoutes.GET("", player.GetPlayers)
+				playerRoutes.GET("/history", player.GetPlayersHistory)
+				playerRoutes.GET("/summary", player.GetPlayerSummary)
 			}
 
 			// Image Management

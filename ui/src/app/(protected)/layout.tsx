@@ -70,6 +70,7 @@ export default function ProtectedLayout({
               <nav className="flex items-center gap-1">
                 {navLink('/home', t('home'), pathname === '/home')}
                 {navLink('/servers', t('servers'), pathname.startsWith('/servers'))}
+                {navLink('/players', t('players'), pathname.startsWith('/players'))}
                 {navLink('/plugins', t('plugins'), pathname.startsWith('/plugins'))}
               </nav>
             </div>
