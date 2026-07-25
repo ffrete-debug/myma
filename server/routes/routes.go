@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"ark-server-commander/controllers/audit"
 	"ark-server-commander/controllers/auth"
 	"ark-server-commander/controllers/images"
 	"ark-server-commander/controllers/player"
@@ -137,6 +138,11 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 				pluginRoutes.GET("/zip-download", plugins.ZipDownload)
 			}
 
+
+			// Audit logs
+			auditRoutes := protected.Group("/audit-logs")
+			auditRoutes.GET("", audit.GetAuditLogs)
+
 			// Update status（Issue #3）
 			updateRoutes := api.Group("/updates")
 			{
@@ -163,6 +169,7 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			// WebSocket (auth-protected — token via query param for browser WS clients)
 			protected.GET("/ws/updates/:id", hub.HandleWebSocket)
 			protected.GET("/ws/rcon/:id", websocket.HandleRCONWebSocket)
+			protected.GET("/ws/logs/:id", websocket.HandleLogsWebSocket)
 		}
 	}
 }

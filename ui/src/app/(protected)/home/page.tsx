@@ -97,7 +97,7 @@ export default function HomePage() {
 
     const quickLinks = [
         { href: '/servers', icon: Server, label: t('serverManagement'), desc: t('serverManagementDesc'), color: 'blue' },
-        { href: '#', icon: Users, label: t('playerManagement'), desc: t('playerManagementDesc'), color: 'gray', disabled: true },
+        { href: '/players', icon: Users, label: t('playerManagement'), desc: t('playerManagementDesc'), color: 'blue' },
         { href: '/servers', icon: Activity, label: t('logMonitoring'), desc: t('logMonitoringDesc'), color: 'green' },
     ];
 
@@ -157,9 +157,9 @@ export default function HomePage() {
 
             {/* Quick links grid */}
             <div className="grid grid-cols-3 gap-4">
-                {quickLinks.map(({ href, icon: Icon, label, desc, color, disabled }) => (
-                    <Link key={label} href={disabled ? '#' : href} className={disabled ? 'cursor-default' : ''}>
-                        <Card className={`border-0 shadow-sm transition-all duration-200 ${disabled ? 'opacity-50' : 'hover:shadow-md hover:-translate-y-0.5 cursor-pointer'}`}>
+                {quickLinks.map(({ href, icon: Icon, label, desc, color }) => (
+                    <Link key={label} href={href}>
+                        <Card className="border-0 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
                             <CardContent className="p-4 flex items-center gap-3">
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-100 dark:bg-${color}-950/30`}>
                                     <Icon className={`w-5 h-5 text-${color}-600`} />
@@ -168,7 +168,6 @@ export default function HomePage() {
                                     <p className="text-sm font-semibold text-foreground truncate">{label}</p>
                                     <p className="text-xs text-muted-foreground truncate">{desc}</p>
                                 </div>
-                                {disabled && <span className="ml-auto text-[10px] uppercase text-muted-foreground tracking-wide">Soon</span>}
                             </CardContent>
                         </Card>
                     </Link>

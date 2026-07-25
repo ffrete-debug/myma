@@ -453,3 +453,18 @@ func (dm *DockerManager) GetContainerLogs(containerName string, tail int) (strin
 	}
 	return strings.TrimSpace(buf.String()), nil
 }
+
+// StreamContainerLogs opens a streaming reader for the container's
+// combined stdout+stderr logs. caller is responsible for closing the reader.
+// Follow controls whether the stream waits for new output indefinitely.
+func (dm *DockerManager) StreamContainerLogs(containerName string, follow bool, tail string) (io.ReadCloser, error) {
+	options := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     follow,
+	}
+	if tail != "" {
+		options.Tail = tail
+	}
+	return dm.client.ContainerLogs(dm.ctx, containerName, options)
+}
