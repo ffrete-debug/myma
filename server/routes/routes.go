@@ -25,10 +25,10 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 		c.JSON(200, gin.H{"status": "ok", "message": "Servers "})
 	})
 
-	//  - 
+	//  -
 	// YesNo
 	if _, err := os.Stat("./static"); err == nil {
-		//  Next.js 
+		//  Next.js
 		r.Static("/_next", "./static/_next")
 		r.Static("/public", "./static/public")
 		r.StaticFile("/favicon.ico", "./static/public/favicon.ico")
@@ -87,9 +87,9 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 				serverRoutes.POST("/:id/stop", servers.StopServer)
 				serverRoutes.POST("/:id/restart", servers.RestartServer)
 				serverRoutes.POST("/:id/recreate", servers.RecreateContainer)
-			serverRoutes.GET("/:id/rcon", servers.GetServerRCON)
-			serverRoutes.POST("/:id/rcon/execute", rcon.ExecuteRCON)
-			serverRoutes.GET("/:id/logs", servers.GetServerLogs)
+				serverRoutes.GET("/:id/rcon", servers.GetServerRCON)
+				serverRoutes.POST("/:id/rcon/execute", rcon.ExecuteRCON)
+				serverRoutes.GET("/:id/logs", servers.GetServerLogs)
 			}
 
 			// Bulk Server Operations
@@ -137,7 +137,6 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 				pluginRoutes.POST("/unzip", plugins.UnzipFile)
 				pluginRoutes.GET("/zip-download", plugins.ZipDownload)
 			}
-
 
 			// Audit logs
 			auditRoutes := protected.Group("/audit-logs")

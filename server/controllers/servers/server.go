@@ -272,7 +272,7 @@ func UpdateServer(c *gin.Context) {
 		return
 	}
 
-	// 
+	//
 	message := "Server updated successfully"
 	if argsChanged && response.Status == "running" {
 		message = "Server updated successfully，Start 。 Servers ， Restart server Start 。"
@@ -411,7 +411,7 @@ func StopServer(c *gin.Context) {
 	})
 }
 
-// RecreateContainer 
+// RecreateContainer
 // @Summary Rebuild server container
 // @Description Rebuild container for server using new image
 // @Tags Server Management
@@ -497,11 +497,11 @@ type BulkServerActionRequest struct {
 }
 
 type BulkServerActionResponse struct {
-	Action       string            `json:"action"`
-	Total        int               `json:"total"`
-	Success      int               `json:"success"`
-	Failed       int               `json:"failed"`
-	Results      []BulkResult      `json:"results"`
+	Action  string       `json:"action"`
+	Total   int          `json:"total"`
+	Success int          `json:"success"`
+	Failed  int          `json:"failed"`
+	Results []BulkResult `json:"results"`
 }
 
 type BulkResult struct {

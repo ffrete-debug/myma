@@ -24,8 +24,8 @@ export default function ServerDetailPage() {
   const [error, setError] = useState('');
   const [actionInProgress, setActionInProgress] = useState<string>('');
   const [backups, setBackups] = useState<Backup[]>([]);
-  const [backupLoading, setBackupLoading] = useState(false);
   const [backupCreating, setBackupCreating] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
 
   interface Backup {
     id: number;

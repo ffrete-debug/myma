@@ -42,8 +42,8 @@ type ServerRequest struct {
 	GameModIds    string `json:"game_mod_ids"`                        // ID，
 	AutoRestart   *bool  `json:"auto_restart"`                        // YesNoRestart（）
 	// （）
-	GameUserSettings string `json:"game_user_settings,omitempty"` // GameUserSettings.ini 
-	GameIni          string `json:"game_ini,omitempty"`           // Game.ini 
+	GameUserSettings string `json:"game_user_settings,omitempty"` // GameUserSettings.ini
+	GameIni          string `json:"game_ini,omitempty"`           // Game.ini
 	// Start（）
 	ServerArgs *ServerArgsRequest `json:"server_args,omitempty"`
 }
@@ -65,9 +65,9 @@ type ServerResponse struct {
 	UserID        uint   `json:"user_id"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
-	// 
-	GameUserSettings string `json:"game_user_settings,omitempty"` // GameUserSettings.ini 
-	GameIni          string `json:"game_ini,omitempty"`           // Game.ini 
+	//
+	GameUserSettings string `json:"game_user_settings,omitempty"` // GameUserSettings.ini
+	GameIni          string `json:"game_ini,omitempty"`           // Game.ini
 	// Start
 	ServerArgs    *ServerArgs `json:"server_args,omitempty"`    // Start
 	GeneratedArgs string      `json:"generated_args,omitempty"` // Start
@@ -86,8 +86,8 @@ type ServerUpdateRequest struct {
 	GameModIds    string `json:"game_mod_ids"`                        // ID，
 	AutoRestart   *bool  `json:"auto_restart"`
 	// （）
-	GameUserSettings string `json:"game_user_settings,omitempty"` // GameUserSettings.ini 
-	GameIni          string `json:"game_ini,omitempty"`           // Game.ini 
+	GameUserSettings string `json:"game_user_settings,omitempty"` // GameUserSettings.ini
+	GameIni          string `json:"game_ini,omitempty"`           // Game.ini
 	// Start（）
 	ServerArgs *ServerArgsRequest `json:"server_args,omitempty"` // Start
 }

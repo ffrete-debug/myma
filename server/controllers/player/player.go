@@ -112,12 +112,12 @@ func GetPlayerSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Operation successful",
 		"data": gin.H{
-			"server_id":      result.ServerID,
-			"identifier":     result.Identifier,
-			"online_count":   result.TotalOnline,
-			"max_players":    result.MaxPlayers,
-			"tracked_total":  len(history) + result.TotalOnline,
-			"offline_count":  offlineCount,
+			"server_id":     result.ServerID,
+			"identifier":    result.Identifier,
+			"online_count":  result.TotalOnline,
+			"max_players":   result.MaxPlayers,
+			"tracked_total": len(history) + result.TotalOnline,
+			"offline_count": offlineCount,
 		},
 	})
 }

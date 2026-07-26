@@ -112,7 +112,8 @@ func (s *PlayerService) GetPlayersHistory(userID uint, serverID string) ([]model
 
 // parseListPlayersOutput parses the raw RCON output of the `listplayers` command.
 // ARK RCON returns output in a line-based format like:
-//   1. "PlayerName" (<steamid>) - Duration: 1h 23m 45s
+//  1. "PlayerName" (<steamid>) - Duration: 1h 23m 45s
+//
 // or similar variations with different delimiters.
 func parseListPlayersOutput(output string) []models.OnlinePlayer {
 	var players []models.OnlinePlayer

@@ -20,11 +20,11 @@ var rconUpgrader = websocket.Upgrader{
 
 // Limits applied to the RCON WebSocket session.
 const (
-	rconMaxCommandSize = 1 << 10          // 1 KB per inbound command (RCON commands are short shell-like strings)
-	rconReadTimeout    = 30 * time.Second  // idle read deadline before we drop the session
-	rconWriteTimeout   = 10 * time.Second  // write deadline for responses
+	rconMaxCommandSize = 1 << 10                // 1 KB per inbound command (RCON commands are short shell-like strings)
+	rconReadTimeout    = 30 * time.Second       // idle read deadline before we drop the session
+	rconWriteTimeout   = 10 * time.Second       // write deadline for responses
 	rconMinInterval    = 250 * time.Millisecond // rate limit between commands per session
-	rconMaxOutput      = 65536             // 64 KB — bounce brutal responses (server logs, dump commands)
+	rconMaxOutput      = 65536                  // 64 KB — bounce brutal responses (server logs, dump commands)
 )
 
 // HandleRCONWebSocket upgrades the connection to a WebSocket and bridges

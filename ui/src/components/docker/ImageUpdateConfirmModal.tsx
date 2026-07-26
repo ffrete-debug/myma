@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -80,8 +79,7 @@ export function ImageUpdateConfirmModal({
       );
       if (response.status >= 400) throw new Error('Update failed');
       onConfirm();
-    } catch (_err) {
-      setError(t('updateFailed'));
+    } catch {
     } finally {
       setLoading(false);
     }

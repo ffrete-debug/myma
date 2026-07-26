@@ -42,10 +42,10 @@ func (s *ServerService) getUserMutex(userID uint) *sync.Mutex {
 	return mu.(*sync.Mutex)
 }
 
-// checkPortConflict 
+// checkPortConflict
 // userID: UserID
 // serverID: Server ID（0 Servers，Server ID）
-// port, queryPort, rconPort: 
+// port, queryPort, rconPort:
 // : Error
 func (s *ServerService) checkPortConflict(userID uint, serverID uint, port, queryPort, rconPort int) error {
 	var existingServers []models.Server
@@ -178,7 +178,7 @@ func (s *ServerService) CreateServer(userID uint, req models.ServerRequest) (*mo
 		req.AutoRestart = &defaultVal
 	}
 
-	// 
+	//
 	if err := s.checkPortConflict(userID, 0, req.Port, req.QueryPort, req.RCONPort); err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func (s *ServerService) CreateServer(userID uint, req models.ServerRequest) (*mo
 		return nil, fmt.Errorf("CreateDocker : %w", err)
 	}
 
-	// 
+	//
 	var gameUserSettings string
 	var gameIni string
 
@@ -259,7 +259,7 @@ func (s *ServerService) CreateServer(userID uint, req models.ServerRequest) (*mo
 		gameIni = utils.GetDefaultGameIni()
 	}
 
-	// 
+	//
 	if err := dockerManager.WriteConfigFile(server.ID, utils.GameUserSettingsFileName, gameUserSettings); err != nil {
 		tx.Rollback()
 		return nil, fmt.Errorf(" GameUserSettings.ini : %w", err)
@@ -270,13 +270,13 @@ func (s *ServerService) CreateServer(userID uint, req models.ServerRequest) (*mo
 		return nil, fmt.Errorf(" Game.ini : %w", err)
 	}
 
-	// 
+	//
 	if err := tx.Commit().Error; err != nil {
 		dockerManager.RemoveVolume(server.ID)
 		return nil, fmt.Errorf(" : %w", err)
 	}
 
-	// 
+	//
 	response := models.ServerResponse{
 		ID:            server.ID,
 		Identifier:    server.Identifier,
@@ -295,7 +295,7 @@ func (s *ServerService) CreateServer(userID uint, req models.ServerRequest) (*mo
 		UpdatedAt:     server.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 
-	// 
+	//
 	if gameUserSettings, err := dockerManager.ReadConfigFile(uint(server.ID), utils.GameUserSettingsFileName); err == nil {
 		response.GameUserSettings = gameUserSettings
 	}
@@ -350,7 +350,7 @@ func (s *ServerService) GetServer(userID uint, serverID string) (*models.ServerR
 		GeneratedArgs: serverArgs.GenerateArgsString(server),
 	}
 
-	// 
+	//
 	dockerManager, err := docker_manager.GetDockerManager()
 	if err != nil {
 		return nil, fmt.Errorf(" Docker Manager : %w", err)
@@ -457,7 +457,7 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 		server.Identifier = req.Identifier
 	}
 
-	// 
+	//
 	if req.SessionName != "" {
 		server.SessionName = req.SessionName
 	}
@@ -500,7 +500,7 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 		}
 	}
 
-	// 
+	//
 	if err := s.checkPortConflict(userID, uint(id), server.Port, server.QueryPort, server.RCONPort); err != nil {
 		return nil, false, err
 	}
@@ -509,7 +509,7 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 		return nil, false, fmt.Errorf("Servers : %w", err)
 	}
 
-	// 
+	//
 	if req.GameUserSettings != "" || req.GameIni != "" {
 		dockerManager, err := docker_manager.GetDockerManager()
 		if err != nil {
@@ -535,7 +535,7 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 		}
 	}
 
-	// 
+	//
 	response := models.ServerResponse{
 		ID:            server.ID,
 		Identifier:    server.Identifier,
@@ -556,7 +556,7 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 		ServerArgs:    models.FromServer(server),
 	}
 
-	// 
+	//
 	dockerManager, err := docker_manager.GetDockerManager()
 	if err != nil {
 		return nil, false, fmt.Errorf(" Docker Manager : %w", err)
@@ -704,7 +704,7 @@ func (s *ServerService) startServerAsync(server models.Server, dockerManager *do
 			}
 			currentArgsString := serverArgs.GenerateArgsString(server)
 
-			// 
+			//
 			if containerArgsString, exists := envVars["SERVER_ARGS"]; exists {
 				if containerArgsString != currentArgsString {
 					needRecreateContainer = true
@@ -713,7 +713,7 @@ func (s *ServerService) startServerAsync(server models.Server, dockerManager *do
 				needRecreateContainer = true
 			}
 
-			// 
+			//
 			if !needRecreateContainer {
 				if server.GameModIds != envVars["GameModIds"] {
 					needRecreateContainer = true
@@ -859,7 +859,7 @@ func (s *ServerService) ValidateRequiredImages() (missing []string, err error) {
 	return dockerManager.ValidateRequiredImages()
 }
 
-// Check ImageUpdates 
+// Check ImageUpdates
 func (s *ServerService) CheckImageUpdates() (map[string]bool, error) {
 	dockerManager, err := docker_manager.GetDockerManager()
 	if err != nil {
@@ -885,7 +885,7 @@ func (s *ServerService) CheckImageUpdates() (map[string]bool, error) {
 	return updateStatus, nil
 }
 
-// PullImage 
+// PullImage
 func (s *ServerService) PullImage(imageName string) error {
 	dockerManager, err := docker_manager.GetDockerManager()
 	if err != nil {
@@ -910,7 +910,7 @@ func (s *ServerService) PullImage(imageName string) error {
 		return fmt.Errorf(" : %s", imageName)
 	}
 
-	// 
+	//
 	go func() {
 		if err := dockerManager.PullImageWithProgress(imageName); err != nil {
 			utils.Error(" ", zap.String("image", imageName), zap.Error(err))
@@ -948,7 +948,7 @@ func (s *ServerService) UpdateImage(imageName string, userID uint) ([]models.Ser
 		return nil, fmt.Errorf(" Servers : %w", err)
 	}
 
-	// 
+	//
 	go func() {
 		dockerManager, err := docker_manager.GetDockerManager()
 		if err != nil {
@@ -956,7 +956,7 @@ func (s *ServerService) UpdateImage(imageName string, userID uint) ([]models.Ser
 			return
 		}
 
-		// 
+		//
 		utils.Info("On ", zap.String("image", imageName))
 		if err := dockerManager.PullImageWithProgress(imageName); err != nil {
 			utils.Error(" ", zap.String("image", imageName), zap.Error(err))
@@ -987,7 +987,7 @@ func (s *ServerService) GetAffectedServers(imageName string, userID uint) ([]mod
 	return []models.ServerResponse{}, nil
 }
 
-// RecreateContainer 
+// RecreateContainer
 func (s *ServerService) RecreateContainer(userID uint, serverID string) error {
 	mu := s.getUserMutex(userID)
 	mu.Lock()
@@ -1021,7 +1021,7 @@ func (s *ServerService) RecreateContainer(userID uint, serverID string) error {
 		}
 	}
 
-	// 
+	//
 	go func() {
 		dockerManager, err := docker_manager.GetDockerManager()
 		if err != nil {

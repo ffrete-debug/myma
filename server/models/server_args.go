@@ -97,7 +97,7 @@ func (sa *ServerArgs) GenerateArgsString(server Server) string {
 		queryParams = append(queryParams, fmt.Sprintf("?GameModIds=%s", server.GameModIds))
 	}
 
-	// 
+	//
 	for key, value := range sa.QueryParams {
 		// ，
 		if key == "listen" || key == "Port" || key == "QueryPort" || key == "MaxPlayers" ||
@@ -113,7 +113,7 @@ func (sa *ServerArgs) GenerateArgsString(server Server) string {
 		queryParams = append(queryParams, fmt.Sprintf("?%s=%s", key, value))
 	}
 
-	// 
+	//
 	for key, value := range sa.CommandLineArgs {
 		switch v := value.(type) {
 		case bool:
@@ -140,17 +140,17 @@ func (sa *ServerArgs) GenerateArgsString(server Server) string {
 		commandLineParams = append(commandLineParams, fmt.Sprintf("-clusterid=%s", server.ClusterID))
 	}
 
-	// 
+	//
 	commandLineParams = append(commandLineParams, sa.CustomArgs...)
 
-	// ：Map + （None）+  + 
+	// ：Map + （None）+  +
 	if len(queryParams) > 0 {
 		result += strings.Join(queryParams, "")
 	}
 
 	if len(commandLineParams) > 0 {
 		if len(queryParams) > 0 {
-			result += " " // 
+			result += " " //
 		}
 		result += strings.Join(commandLineParams, " ")
 	}

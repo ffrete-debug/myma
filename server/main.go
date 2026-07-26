@@ -10,8 +10,8 @@ import (
 	"ark-server-commander/utils"
 	"ark-server-commander/websocket"
 	"os"
-	"syscall"
 	signal "os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"

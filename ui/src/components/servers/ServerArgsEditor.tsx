@@ -38,7 +38,7 @@ export function ServerArgsEditor({ value, onChange }: ServerArgsEditorProps) {
 
   // Get
   const availableCategories = Object.entries(paramCategories)
-    .filter(([_, params]) => params.length > 0)
+    .filter(([, params]) => params.length > 0)
     .map(([category]) => category as CategoryKey);
 
   const handleParamChange = (

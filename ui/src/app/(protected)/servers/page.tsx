@@ -7,7 +7,7 @@ import { ServerCard } from '@/components/servers/ServerCard';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ClosableAlert } from '@/components/ui/closable-alert';
-import { Plus, Loader2, Server as ServerIcon, AlertCircle, FileText, ChevronDown, ChevronLeft, ChevronRight, Check, Play, Square, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, Server as ServerIcon, AlertCircle, FileText, ChevronDown, ChevronLeft, ChevronRight, Play, Square, RefreshCw } from 'lucide-react';
 import { Server } from '@/stores/servers';
 import { useTranslations } from 'next-intl';
 import {

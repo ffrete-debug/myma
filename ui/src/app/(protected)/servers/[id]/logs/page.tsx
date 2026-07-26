@@ -32,7 +32,6 @@ export default function ServerLogsPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
-  const onWSMessageRef = useRef<((line: string) => void) | null>(null);
 
   const fetchLogs = useCallback(async () => {
     try {

@@ -6,15 +6,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// RollbackAction 
+// RollbackAction
 type RollbackAction struct {
 	Type        string       // : "volume", "container", "config"
 	ResourceID  string       // ID
-	Action      func() error // 
-	Description string       // 
+	Action      func() error //
+	Description string       //
 }
 
-// RollbackManager 
+// RollbackManager
 type RollbackManager struct {
 	actions []RollbackAction
 }
@@ -26,7 +26,7 @@ func NewRollbackManager() *RollbackManager {
 	}
 }
 
-// AddAction 
+// AddAction
 func (rm *RollbackManager) AddAction(actionType, resourceID, description string, action func() error) {
 	rm.actions = append(rm.actions, RollbackAction{
 		Type:        actionType,
@@ -51,7 +51,7 @@ func (rm *RollbackManager) Rollback() error {
 
 	var rollbackErrors []error
 
-	// 
+	//
 	for i := len(rm.actions) - 1; i >= 0; i-- {
 		action := rm.actions[i]
 		utils.Info(" ",
@@ -80,13 +80,13 @@ func (rm *RollbackManager) Rollback() error {
 	return nil
 }
 
-// Clear 
+// Clear
 func (rm *RollbackManager) Clear() {
 	rm.actions = make([]RollbackAction, 0)
 	utils.Debug(" ")
 }
 
-// Count 
+// Count
 func (rm *RollbackManager) Count() int {
 	return len(rm.actions)
 }

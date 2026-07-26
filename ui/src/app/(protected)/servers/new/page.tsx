@@ -180,7 +180,7 @@ export default function ServerNewPage() {
                     Presets (PVE/PVP)
                   </summary>
                   <div className="mt-3">
-                    <PresetSelector onSelect={(ini, name) => {
+                    <PresetSelector onSelect={(ini) => {
                       setFormData(p => ({ ...p, game_ini: ini }));
                     }} />
                   </div>

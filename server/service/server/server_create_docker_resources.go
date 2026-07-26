@@ -13,7 +13,7 @@ import (
 func (s *ServerService) createDockerResources(userID uint, server *models.Server, req models.ServerRequest, dockerRollback *docker_manager.RollbackManager) (*models.ServerResponse, error) {
 	var err error
 
-	//  Docker 
+	//  Docker
 	dockerManager, getErr := docker_manager.GetDockerManager()
 	if getErr != nil {
 		// Docker ，Delete
@@ -21,7 +21,7 @@ func (s *ServerService) createDockerResources(userID uint, server *models.Server
 		return nil, fmt.Errorf(" Docker Manager : %w", getErr)
 	}
 
-	// 1: Create Docker 
+	// 1: Create Docker
 	utils.Info("CreateDocker ", zap.Uint("server_id", server.ID))
 	volumeName, volErr := dockerManager.CreateVolume(server.ID)
 	if volErr != nil {
@@ -32,12 +32,12 @@ func (s *ServerService) createDockerResources(userID uint, server *models.Server
 
 	utils.Info("Docker Created successfully", zap.String("volume", volumeName))
 
-	// ：Delete Docker 
+	// ：Delete Docker
 	dockerRollback.AddAction("volume", volumeName, "DeleteDocker ", func() error {
 		return dockerManager.RemoveVolume(server.ID)
 	})
 
-	// 2: 
+	// 2:
 	var gameUserSettings string
 	var gameIni string
 
@@ -64,7 +64,7 @@ func (s *ServerService) createDockerResources(userID uint, server *models.Server
 		gameIni = utils.GetDefaultGameIni()
 	}
 
-	// 3: 
+	// 3:
 	utils.Info(" ", zap.Uint("server_id", server.ID))
 	if writeErr := dockerManager.WriteConfigFile(server.ID, utils.GameUserSettingsFileName, gameUserSettings); writeErr != nil {
 		err = fmt.Errorf(" GameUserSettings.ini : %w", writeErr)
@@ -82,7 +82,7 @@ func (s *ServerService) createDockerResources(userID uint, server *models.Server
 		zap.Uint("server_id", server.ID),
 		zap.String("identifier", server.Identifier))
 
-	// 
+	//
 	response := models.ServerResponse{
 		ID:            server.ID,
 		Identifier:    server.Identifier,
@@ -101,7 +101,7 @@ func (s *ServerService) createDockerResources(userID uint, server *models.Server
 		UpdatedAt:     server.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 
-	// 
+	//
 	if content, readErr := dockerManager.ReadConfigFile(server.ID, utils.GameUserSettingsFileName); readErr == nil {
 		response.GameUserSettings = content
 	}
@@ -109,7 +109,7 @@ func (s *ServerService) createDockerResources(userID uint, server *models.Server
 		response.GameIni = content
 	}
 
-	// Success， Docker 
+	// Success， Docker
 	dockerRollback.Clear()
 
 	return &response, nil

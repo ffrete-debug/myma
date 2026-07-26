@@ -200,7 +200,7 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
     } catch (error) {
       console.error(t('parseGameIniError') + ':', error);
     }
-  }, []);
+  }, [t]);
 
   // Initialize with default values
   useEffect(() => {

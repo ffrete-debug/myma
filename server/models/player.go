@@ -7,28 +7,28 @@ import (
 )
 
 type Player struct {
-	ID          uint      `json:"id" gorm:"primarykey"`
-	ServerID    uint      `json:"server_id" gorm:"index:idx_server_id;"`
-	Name        string    `json:"name"`
-	SteamID     string    `json:"steam_id" gorm:"index:idx_steam_id;"`
-	CharacterID string    `json:"character_id"`
-	Status      string    `json:"status" gorm:"default:'online'"`
-	IP          string    `json:"ip"`
-	JoinedAt    time.Time `json:"joined_at"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uint           `json:"id" gorm:"primarykey"`
+	ServerID    uint           `json:"server_id" gorm:"index:idx_server_id;"`
+	Name        string         `json:"name"`
+	SteamID     string         `json:"steam_id" gorm:"index:idx_steam_id;"`
+	CharacterID string         `json:"character_id"`
+	Status      string         `json:"status" gorm:"default:'online'"`
+	IP          string         `json:"ip"`
+	JoinedAt    time.Time      `json:"joined_at"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index"`
 
 	Server Server `json:"server" gorm:"foreignKey:ServerID"`
 }
 
 type PlayerListResponse struct {
-	ServerID   uint    `json:"server_id"`
-	Identifier string  `json:"identifier"`
-	SessionName string `json:"session_name"`
-	Online     []OnlinePlayer `json:"online"`
-	TotalOnline int   `json:"total_online"`
-	MaxPlayers  int   `json:"max_players"`
+	ServerID    uint           `json:"server_id"`
+	Identifier  string         `json:"identifier"`
+	SessionName string         `json:"session_name"`
+	Online      []OnlinePlayer `json:"online"`
+	TotalOnline int            `json:"total_online"`
+	MaxPlayers  int            `json:"max_players"`
 }
 
 type OnlinePlayer struct {

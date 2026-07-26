@@ -74,7 +74,7 @@ func (dm *DockerManager) CreateContainerWithRollback(serverID uint, serverName s
 	}
 	argsString := serverArgs.GenerateArgsString(server)
 
-	// 5: 
+	// 5:
 	envVars := []string{
 		"TZ=Asia/Shanghai",
 		fmt.Sprintf("SERVER_ARGS=%s", argsString),
@@ -83,7 +83,7 @@ func (dm *DockerManager) CreateContainerWithRollback(serverID uint, serverName s
 		envVars = append(envVars, fmt.Sprintf("GameModIds=%s", server.GameModIds))
 	}
 
-	// 6: 
+	// 6:
 	containerConfig := &container.Config{
 		Image: imageName,
 		Env:   envVars,
@@ -105,7 +105,7 @@ func (dm *DockerManager) CreateContainerWithRollback(serverID uint, serverName s
 		restartPolicyName = container.RestartPolicyMode("no")
 	}
 
-	// 8: 
+	// 8:
 	hostConfig := &container.HostConfig{
 		RestartPolicy: container.RestartPolicy{
 			Name: restartPolicyName,

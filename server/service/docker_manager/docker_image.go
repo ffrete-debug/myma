@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// ImagePullProgress 
+// ImagePullProgress
 type ImagePullProgress struct {
 	Status         string `json:"status"`
 	Progress       string `json:"progress"`
@@ -30,8 +30,8 @@ type ImagePullProgress struct {
 // LayerStatus Status
 type LayerStatus struct {
 	ID       string `json:"id"`       // ID
-	Size     int64  `json:"size"`     // 
-	Progress int64  `json:"progress"` // 
+	Size     int64  `json:"size"`     //
+	Progress int64  `json:"progress"` //
 	Status   string `json:"status"`   // Status：downloading, extracting, verifying, complete
 }
 
@@ -41,7 +41,7 @@ type ImageStatus struct {
 	Pulling      bool                    `json:"pulling"`       // YesNo
 	Ready        bool                    `json:"ready"`         // YesNo
 	Error        string                  `json:"error"`         // Error
-	CurrentLayer string                  `json:"current_layer"` // 
+	CurrentLayer string                  `json:"current_layer"` //
 	Layers       map[string]*LayerStatus `json:"layers"`        // Status
 }
 
@@ -93,14 +93,14 @@ func (dm *DockerManager) PullImageWithProgress(imageName string) error {
 		cleanupImagePullState(imageName)
 	}()
 
-	// 
+	//
 	reader, err := dm.client.ImagePull(dm.ctx, imageName, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf(" Docker : %v", err)
 	}
 	defer reader.Close()
 
-	// 
+	//
 	buffer := make([]byte, 1024)
 	for {
 		n, err := reader.Read(buffer)
@@ -119,12 +119,12 @@ func (dm *DockerManager) PullImageWithProgress(imageName string) error {
 					state := getImagePullState(imageName)
 					state.mu.Lock()
 
-					// 
+					//
 					layerID := progressInfo.ID
 					if layerID != "" {
 						state.currentLayer = layerID
 
-						// 
+						//
 						if state.layers[layerID] == nil {
 							state.layers[layerID] = &LayerStatus{
 								ID:       layerID,
@@ -134,7 +134,7 @@ func (dm *DockerManager) PullImageWithProgress(imageName string) error {
 							}
 						}
 
-						// 
+						//
 						if progressInfo.ProgressDetail != nil {
 							if progressInfo.ProgressDetail.Total > 0 {
 								state.layers[layerID].Size = progressInfo.ProgressDetail.Total
@@ -173,7 +173,7 @@ func (dm *DockerManager) PullImageWithProgress(imageName string) error {
 
 					state.mu.Unlock()
 
-					// 
+					//
 					if strings.Contains(progressInfo.Status, "Downloading") || strings.Contains(progressInfo.Status, "Extracting") {
 						// （）
 					}
@@ -201,7 +201,7 @@ func (dm *DockerManager) ImageExists(imageName string) (bool, error) {
 	_, err := dm.client.ImageInspect(dm.ctx, imageName)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
-			return false, nil // 
+			return false, nil //
 		}
 		return false, fmt.Errorf(" Docker : %v", err)
 	}
@@ -303,20 +303,20 @@ func (dm *DockerManager) WaitForImage(imageName string, timeout int) (bool, erro
 	return false, fmt.Errorf("  %s  （%d ）", imageName, timeout)
 }
 
-// parseSizeFromProgress 
+// parseSizeFromProgress
 // progress: ， "1.5MB/2.0MB"
 // : （）
 func parseSizeFromProgress(progress string) int64 {
-	// 
+	//
 	progress = strings.TrimSpace(progress)
 
-	//  "/" 
+	//  "/"
 	parts := strings.Split(progress, "/")
 	if len(parts) != 2 {
 		return 0
 	}
 
-	// 
+	//
 	totalStr := strings.TrimSpace(parts[1])
 	return parseSizeString(totalStr)
 }
@@ -367,7 +367,7 @@ func (dm *DockerManager) CheckImageUpdate(imageName string) (bool, error) {
 	return hasUpdate, nil
 }
 
-// GetImageInfo 
+// GetImageInfo
 // imageName: Image name
 // : Image informationError
 func (dm *DockerManager) GetImageInfo(imageName string) (*ImageInfo, error) {
@@ -387,8 +387,8 @@ func (dm *DockerManager) GetImageInfo(imageName string) (*ImageInfo, error) {
 // ImageInfo Image information
 type ImageInfo struct {
 	ID      string   `json:"id"`      // ID
-	Tags    []string `json:"tags"`    // 
-	Size    int64    `json:"size"`    // 
+	Tags    []string `json:"tags"`    //
+	Size    int64    `json:"size"`    //
 	Created string   `json:"created"` // Created at
 }
 
@@ -414,7 +414,7 @@ func (dm *DockerManager) RemoveOldImage(imageName string, keepLatest bool) error
 	return nil
 }
 
-// GetContainersByImage 
+// GetContainersByImage
 // imageName: Image name
 // : Error
 func (dm *DockerManager) GetContainersByImage(imageName string) ([]ContainerInfo, error) {
@@ -441,16 +441,16 @@ func (dm *DockerManager) GetContainersByImage(imageName string) ([]ContainerInfo
 	return result, nil
 }
 
-// ContainerInfo 
+// ContainerInfo
 type ContainerInfo struct {
 	ID     string `json:"id"`     // ID
-	Name   string `json:"name"`   // 
+	Name   string `json:"name"`   //
 	Image  string `json:"image"`  // Image name
 	Status string `json:"status"` // Status
 	State  string `json:"state"`  // Status
 }
 
-// GetImageHistory 
+// GetImageHistory
 // imageName: Image name
 // : Error
 func (dm *DockerManager) GetImageHistory(imageName string) ([]ImageHistoryEntry, error) {
@@ -473,22 +473,22 @@ func (dm *DockerManager) GetImageHistory(imageName string) ([]ImageHistoryEntry,
 	return result, nil
 }
 
-// ImageHistoryEntry 
+// ImageHistoryEntry
 type ImageHistoryEntry struct {
 	ID        string `json:"id"`         // ID
 	Created   int64  `json:"created"`    // Created at
 	CreatedBy string `json:"created_by"` // Create
-	Size      int64  `json:"size"`       // 
-	Comment   string `json:"comment"`    // 
+	Size      int64  `json:"size"`       //
+	Comment   string `json:"comment"`    //
 }
 
-// parseSizeString 
+// parseSizeString
 // sizeStr: ， "2.0MB", "1.5GB"
-// : 
+// :
 func parseSizeString(sizeStr string) int64 {
 	sizeStr = strings.ToLower(strings.TrimSpace(sizeStr))
 
-	// 
+	//
 	var multiplier int64 = 1
 	if strings.HasSuffix(sizeStr, "kb") {
 		multiplier = 1024
@@ -504,7 +504,7 @@ func parseSizeString(sizeStr string) int64 {
 		sizeStr = strings.TrimSuffix(sizeStr, "b")
 	}
 
-	// 
+	//
 	if size, err := strconv.ParseFloat(sizeStr, 64); err == nil {
 		return int64(size * float64(multiplier))
 	}

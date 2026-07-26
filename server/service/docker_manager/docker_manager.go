@@ -130,7 +130,7 @@ func (dm *DockerManager) EnsureRequiredImages() error {
 // CreateContainer CreateARKServers（Start）
 // serverID: Server ID
 // serverName: Servers
-// port: 
+// port:
 // queryPort: Query Port
 // rconPort: RCON Port
 // adminPassword: Password
@@ -177,7 +177,7 @@ func (dm *DockerManager) CreateContainer(serverID uint, serverName string, port,
 	}
 	argsString := serverArgs.GenerateArgsString(server)
 
-	// 3. 
+	// 3.
 	envVars := []string{
 		"TZ=Asia/Shanghai",
 		fmt.Sprintf("SERVER_ARGS=%s", argsString),
@@ -186,7 +186,7 @@ func (dm *DockerManager) CreateContainer(serverID uint, serverName string, port,
 		envVars = append(envVars, fmt.Sprintf("GameModIds=%s", server.GameModIds))
 	}
 
-	// 
+	//
 	containerConfig := &container.Config{
 		Image: imageName,
 		Env:   envVars,
@@ -208,7 +208,7 @@ func (dm *DockerManager) CreateContainer(serverID uint, serverName string, port,
 		restartPolicyName = container.RestartPolicyMode("no")
 	}
 
-	// 
+	//
 	hostConfig := &container.HostConfig{
 		RestartPolicy: container.RestartPolicy{
 			Name: restartPolicyName,
@@ -260,7 +260,7 @@ func (dm *DockerManager) CreateContainer(serverID uint, serverName string, port,
 }
 
 // StartContainer Start
-// containerName: 
+// containerName:
 // : Error
 func (dm *DockerManager) StartContainer(containerName string) error {
 	utils.Infof(" Start : %s", containerName)
@@ -274,7 +274,7 @@ func (dm *DockerManager) StartContainer(containerName string) error {
 }
 
 // StopContainer Stop
-// containerName: 
+// containerName:
 // : Error
 func (dm *DockerManager) StopContainer(containerName string) error {
 	utils.Infof(" Stop : %s", containerName)
@@ -293,7 +293,7 @@ func (dm *DockerManager) StopContainer(containerName string) error {
 }
 
 // RemoveContainer Delete
-// containerName: 
+// containerName:
 // : Error
 func (dm *DockerManager) RemoveContainer(containerName string) error {
 	// Stop
@@ -313,7 +313,7 @@ func (dm *DockerManager) RemoveContainer(containerName string) error {
 }
 
 // ContainerExists YesNo
-// containerName: 
+// containerName:
 // : YesNoError
 func (dm *DockerManager) ContainerExists(containerName string) (bool, error) {
 	// inspectYesNo
@@ -329,7 +329,7 @@ func (dm *DockerManager) ContainerExists(containerName string) (bool, error) {
 }
 
 // GetContainerStatus Status
-// containerName: 
+// containerName:
 // : StatusError
 func (dm *DockerManager) GetContainerStatus(containerName string) (string, error) {
 	containerInfo, err := dm.client.ContainerInspect(dm.ctx, containerName)
@@ -355,9 +355,9 @@ func (dm *DockerManager) GetContainerStatus(containerName string) (string, error
 	}
 }
 
-// ExecuteCommand 
-// containerName: 
-// command: 
+// ExecuteCommand
+// containerName:
+// command:
 // : Error
 func (dm *DockerManager) ExecuteCommand(containerName string, command string) (string, error) {
 	// Create
@@ -373,20 +373,20 @@ func (dm *DockerManager) ExecuteCommand(containerName string, command string) (s
 		return "", fmt.Errorf("Create : %v", err)
 	}
 
-	// 
+	//
 	resp, err := dm.client.ContainerExecAttach(dm.ctx, execResp.ID, container.ExecAttachOptions{})
 	if err != nil {
 		return "", fmt.Errorf(" : %v", err)
 	}
 	defer resp.Close()
 
-	// 
+	//
 	output, err := io.ReadAll(resp.Reader)
 	if err != nil {
 		return "", fmt.Errorf(" : %v", err)
 	}
 
-	// 
+	//
 	inspectResp, err := dm.client.ContainerExecInspect(dm.ctx, execResp.ID)
 	if err != nil {
 		return "", fmt.Errorf(" : %v", err)
@@ -399,8 +399,8 @@ func (dm *DockerManager) ExecuteCommand(containerName string, command string) (s
 	return string(output), nil
 }
 
-// GetContainerEnvVars 
-// containerName: 
+// GetContainerEnvVars
+// containerName:
 // : Error
 func (dm *DockerManager) GetContainerEnvVars(containerName string) (map[string]string, error) {
 	containerInfo, err := dm.client.ContainerInspect(dm.ctx, containerName)
@@ -411,7 +411,7 @@ func (dm *DockerManager) GetContainerEnvVars(containerName string) (map[string]s
 		return nil, fmt.Errorf(" Docker : %v", err)
 	}
 
-	// 
+	//
 	envVars := make(map[string]string)
 	for _, env := range containerInfo.Config.Env {
 		// : KEY=VALUE
@@ -429,7 +429,7 @@ func (dm *DockerManager) GetContainerEnvVars(containerName string) (map[string]s
 }
 
 // GetContainerLogs Container Logs
-// containerName: 
+// containerName:
 // tail: N，0
 // : Error
 func (dm *DockerManager) GetContainerLogs(containerName string, tail int) (string, error) {

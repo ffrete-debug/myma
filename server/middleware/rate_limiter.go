@@ -41,7 +41,7 @@ func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 			rl.visitors[ip] = v
 		}
 		elapsed := now.Sub(v.last)
-		v.tokens += int(elapsed / rl.window) * rl.rate
+		v.tokens += int(elapsed/rl.window) * rl.rate
 		if v.tokens > rl.burst {
 			v.tokens = rl.burst
 		}

@@ -97,7 +97,6 @@ func InitUser(c *gin.Context) {
 	})
 }
 
-
 // Login UserLogin
 // @Summary UserLogin
 // @Description UserPasswordLogin

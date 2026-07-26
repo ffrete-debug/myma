@@ -16,7 +16,7 @@ type Claims struct {
 }
 
 var (
-	tokenBlacklist     = make(map[string]time.Time)
+	tokenBlacklist      = make(map[string]time.Time)
 	tokenBlacklistMutex sync.RWMutex
 )
 

@@ -137,7 +137,7 @@ func (s *BackupService) createBackupAsync(backupID uint, volumeName, filename st
 	info, err := os.Stat(filePath)
 	if err != nil {
 		database.DB.Model(&models.Backup{}).Where("id = ?", backupID).Updates(map[string]interface{}{
-			"status": "completed",
+			"status":    "completed",
 			"file_size": 0,
 		})
 		return

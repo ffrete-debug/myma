@@ -107,14 +107,14 @@ func (dm *DockerManager) RemoveSingleVolume(volumeName string) error {
 }
 
 // VolumeExists DockerYesNo
-// volumeName: 
+// volumeName:
 // : YesNoError
 func (dm *DockerManager) VolumeExists(volumeName string) (bool, error) {
-	// 
+	//
 	_, err := dm.client.VolumeInspect(dm.ctx, volumeName)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
-			return false, nil // 
+			return false, nil //
 		}
 		return false, fmt.Errorf(" Docker : %v", err)
 	}

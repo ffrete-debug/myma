@@ -74,7 +74,7 @@ func (s *ServerService) startServerAsyncWithRollback(server models.Server, docke
 			}
 			currentArgsString := serverArgs.GenerateArgsString(server)
 
-			// 
+			//
 			if containerArgsString, exists := envVars["SERVER_ARGS"]; exists {
 				if containerArgsString != currentArgsString {
 					needRecreateContainer = true
@@ -84,7 +84,7 @@ func (s *ServerService) startServerAsyncWithRollback(server models.Server, docke
 				needRecreateContainer = true
 			}
 
-			// 
+			//
 			if !needRecreateContainer {
 				if server.GameModIds != envVars["GameModIds"] {
 					needRecreateContainer = true

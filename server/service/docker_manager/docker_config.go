@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// ReadConfigFile 
+// ReadConfigFile
 // serverID: Server ID
-// fileName: 
+// fileName:
 // : Error
 func (dm *DockerManager) ReadConfigFile(serverID uint, fileName string) (string, error) {
 	volumeName := utils.GetServerVolumeName(serverID)
@@ -36,7 +36,7 @@ func (dm *DockerManager) ReadConfigFile(serverID uint, fileName string) (string,
 	// Create
 	containerConfig := &container.Config{
 		Image: alpineImage,
-		Cmd:   []string{"tail", "-f", "/dev/null"}, // 
+		Cmd:   []string{"tail", "-f", "/dev/null"}, //
 	}
 
 	hostConfig := &container.HostConfig{
@@ -57,21 +57,21 @@ func (dm *DockerManager) ReadConfigFile(serverID uint, fileName string) (string,
 		return "", fmt.Errorf("Start : %v", err)
 	}
 
-	// 
+	//
 	defer func() {
 		dm.client.ContainerRemove(dm.ctx, resp.ID, container.RemoveOptions{
 			Force: true,
 		})
 	}()
 
-	// 
+	//
 	reader, _, err := dm.client.CopyFromContainer(dm.ctx, resp.ID, configPath)
 	if err != nil {
 		return "", fmt.Errorf(" : %v", err)
 	}
 	defer reader.Close()
 
-	//  tar 
+	//  tar
 	tarReader := tar.NewReader(reader)
 
 	// （tar ）
@@ -88,7 +88,7 @@ func (dm *DockerManager) ReadConfigFile(serverID uint, fileName string) (string,
 		return "", fmt.Errorf(" Yes : %s", fileName)
 	}
 
-	// 
+	//
 	var buffer bytes.Buffer
 	_, err = io.Copy(&buffer, tarReader)
 	if err != nil {
@@ -103,10 +103,10 @@ func (dm *DockerManager) ReadConfigFile(serverID uint, fileName string) (string,
 	return content, nil
 }
 
-// WriteConfigFile 
+// WriteConfigFile
 // serverID: Server ID
-// fileName: 
-// content: 
+// fileName:
+// content:
 // : Error
 func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string) error {
 	volumeName := utils.GetServerVolumeName(serverID)
@@ -126,7 +126,7 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 	configPath := fmt.Sprintf("/home/steam/arkserver/ShooterGame/Saved/Config/WindowsServer/%s", fileName)
 	configDir := "/home/steam/arkserver/ShooterGame/Saved/Config/WindowsServer"
 
-	// 
+	//
 	containerConfig := &container.Config{
 		Image: alpineImage,
 		Cmd:   []string{"mkdir", "-p", configDir},
@@ -150,7 +150,7 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 		return fmt.Errorf("Start : %v", err)
 	}
 
-	// 
+	//
 	waitCh, errCh := dm.client.ContainerWait(dm.ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
@@ -158,7 +158,7 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 			return fmt.Errorf(" : %v", err)
 		}
 	case <-waitCh:
-		// 
+		//
 	}
 
 	// Delete
@@ -166,7 +166,7 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 		Force: true,
 	})
 
-	// 
+	//
 	containerConfig = &container.Config{
 		Image: alpineImage,
 		Cmd:   []string{"sh", "-c", fmt.Sprintf("echo '%s' > %s", strings.ReplaceAll(content, "'", "'\"'\"'"), configPath)},
@@ -184,7 +184,7 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 		return fmt.Errorf("Start : %v", err)
 	}
 
-	// 
+	//
 	waitCh, errCh = dm.client.ContainerWait(dm.ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
@@ -192,7 +192,7 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 			return fmt.Errorf(" : %v", err)
 		}
 	case <-waitCh:
-		// 
+		//
 	}
 
 	// Delete

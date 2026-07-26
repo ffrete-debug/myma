@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { getAllPresets, getPresetsByType, presetToIni, ServerPreset } from '@/config/presets';
+import { getPresetsByType, presetToIni } from '@/config/presets';
 
 interface PresetSelectorProps {
   onSelect: (iniContent: string, presetName: string) => void;

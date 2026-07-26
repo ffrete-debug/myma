@@ -13,14 +13,14 @@ import (
 func (s *ServerService) createServerContinue(userID uint, server *models.Server, req models.ServerRequest, tx *gorm.DB, rollback *docker_manager.RollbackManager) (*models.ServerResponse, error) {
 	var err error
 
-	// 5:  Docker 
+	// 5:  Docker
 	dockerManager, getErr := docker_manager.GetDockerManager()
 	if getErr != nil {
 		err = fmt.Errorf(" Docker Manager : %w", getErr)
 		return nil, err
 	}
 
-	// 6: Create Docker 
+	// 6: Create Docker
 	utils.Info("CreateDocker ", zap.Uint("server_id", server.ID))
 	volumeName, volErr := dockerManager.CreateVolume(server.ID)
 	if volErr != nil {
@@ -30,12 +30,12 @@ func (s *ServerService) createServerContinue(userID uint, server *models.Server,
 
 	utils.Info("Docker Created successfully", zap.String("volume", volumeName))
 
-	// ：Delete Docker 
+	// ：Delete Docker
 	rollback.AddAction("volume", volumeName, "DeleteDocker ", func() error {
 		return dockerManager.RemoveVolume(server.ID)
 	})
 
-	// 7: 
+	// 7:
 	var gameUserSettings string
 	var gameIni string
 
@@ -76,7 +76,7 @@ func (s *ServerService) createServerContinue(userID uint, server *models.Server,
 		return nil, err
 	}
 
-	// 10: 
+	// 10:
 	utils.Info(" ", zap.Uint("server_id", server.ID))
 	if commitErr := tx.Commit().Error; commitErr != nil {
 		err = fmt.Errorf(" : %w", commitErr)
@@ -90,7 +90,7 @@ func (s *ServerService) createServerContinue(userID uint, server *models.Server,
 		zap.Uint("server_id", server.ID),
 		zap.String("identifier", server.Identifier))
 
-	// 
+	//
 	response := models.ServerResponse{
 		ID:            server.ID,
 		Identifier:    server.Identifier,
@@ -109,7 +109,7 @@ func (s *ServerService) createServerContinue(userID uint, server *models.Server,
 		UpdatedAt:     server.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 
-	// 
+	//
 	if gameUserSettingsContent, readErr := dockerManager.ReadConfigFile(server.ID, utils.GameUserSettingsFileName); readErr == nil {
 		response.GameUserSettings = gameUserSettingsContent
 	}

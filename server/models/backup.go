@@ -5,15 +5,15 @@ import (
 )
 
 type Backup struct {
-	ID          uint      `json:"id" gorm:"primarykey"`
-	ServerID    uint      `json:"server_id" gorm:"not null;index"`
-	Server      Server    `json:"server" gorm:"foreignKey:ServerID"`
-	Filename    string    `json:"filename" gorm:"not null"`
-	FileSize    int64     `json:"file_size" gorm:"default:0"`
-	Status      string    `json:"status" gorm:"default:'completed'"` // completed, in_progress, failed
-	Error       string    `json:"error,omitempty"`
-	UserID      uint      `json:"user_id" gorm:"not null"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID        uint      `json:"id" gorm:"primarykey"`
+	ServerID  uint      `json:"server_id" gorm:"not null;index"`
+	Server    Server    `json:"server" gorm:"foreignKey:ServerID"`
+	Filename  string    `json:"filename" gorm:"not null"`
+	FileSize  int64     `json:"file_size" gorm:"default:0"`
+	Status    string    `json:"status" gorm:"default:'completed'"` // completed, in_progress, failed
+	Error     string    `json:"error,omitempty"`
+	UserID    uint      `json:"user_id" gorm:"not null"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type BackupRequest struct {

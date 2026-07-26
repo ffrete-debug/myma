@@ -6,11 +6,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 import { Button } from '@/components/ui/button';
 import { Sun, Moon, Monitor } from 'lucide-react';
 
-const themeIcons = {
-  dark: Moon,
-  light: Sun,
-  auto: Monitor,
-};
 
 export function ThemeToggle() {
   const t = useTranslations('common');

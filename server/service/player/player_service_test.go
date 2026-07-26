@@ -102,7 +102,7 @@ func TestParseListPlayersOutput_IPAndDuration(t *testing.T) {
 	if p.CharacterID != "char-abc" {
 		t.Errorf("expected CharacterID char-abc, got %s", p.CharacterID)
 	}
-	_ = p.IP // IP field not yet extracted by parser
+	_ = p.IP       // IP field not yet extracted by parser
 	_ = p.Duration // Duration field not yet extracted by parser
 }
 

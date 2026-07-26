@@ -10,11 +10,11 @@ func init() {
 	utils.InitLogger()
 }
 
-// TestRollbackManager 
+// TestRollbackManager
 func TestRollbackManager(t *testing.T) {
 	rm := NewRollbackManager()
 
-	// 
+	//
 	executed := false
 	rm.AddAction("test", "resource1", " ", func() error {
 		executed = true
@@ -25,7 +25,7 @@ func TestRollbackManager(t *testing.T) {
 		t.Errorf(" 1， %d", rm.Count())
 	}
 
-	// 
+	//
 	if err := rm.Rollback(); err != nil {
 		t.Errorf(" : %v", err)
 	}
@@ -35,13 +35,13 @@ func TestRollbackManager(t *testing.T) {
 	}
 }
 
-// TestRollbackManagerMultipleActions 
+// TestRollbackManagerMultipleActions
 func TestRollbackManagerMultipleActions(t *testing.T) {
 	rm := NewRollbackManager()
 
 	var executionOrder []int
 
-	// 
+	//
 	rm.AddAction("test", "resource1", " 1", func() error {
 		executionOrder = append(executionOrder, 1)
 		return nil
@@ -57,7 +57,7 @@ func TestRollbackManagerMultipleActions(t *testing.T) {
 		return nil
 	})
 
-	// 
+	//
 	if err := rm.Rollback(); err != nil {
 		t.Errorf(" : %v", err)
 	}
@@ -72,7 +72,7 @@ func TestRollbackManagerMultipleActions(t *testing.T) {
 	}
 }
 
-// TestRollbackManagerClear 
+// TestRollbackManagerClear
 func TestRollbackManagerClear(t *testing.T) {
 	rm := NewRollbackManager()
 
