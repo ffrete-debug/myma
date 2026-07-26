@@ -25,6 +25,7 @@ interface GameIniParam {
   min?: number;
   max?: number;
   step?: number;
+  description?: string;
 }
 
 type GameIniCategoryKey =
