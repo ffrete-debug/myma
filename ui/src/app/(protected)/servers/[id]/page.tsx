@@ -169,7 +169,7 @@ export default function ServerDetailPage() {
           <ArrowLeft className="mr-2 h-4 w-4" />
           {tCommon('back')}
         </Button>
-        <div className="text-red-600">{error}</div>
+        <div className="text-red-400">{error}</div>
       </div>
     );
   }
@@ -218,7 +218,7 @@ export default function ServerDetailPage() {
 
       <Card>
         <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-gray-700">{t('serverConfig')}</CardTitle>
+          <CardTitle className="text-sm font-medium text-muted-foreground">{t('serverConfig')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -258,7 +258,7 @@ export default function ServerDetailPage() {
 
       <Card>
         <CardHeader className="py-3">
-          <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <FolderPlus className="h-4 w-4" />
             {t('backupList')}
           </CardTitle>
@@ -334,7 +334,7 @@ export default function ServerDetailPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-950/40"
                       onClick={() => handleDeleteBackup(backup.id)}
                       title={t('backupDelete')}
                     >

@@ -115,7 +115,7 @@ export default function ServersPage() {
     <div className="w-full max-w-none py-8">
       <div className="mb-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{t('title')}</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('title')}</h1>
           <div className="flex items-center gap-2">
             {servers.length > 0 && (
               <Popover>
@@ -127,7 +127,7 @@ export default function ServersPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-56 p-1" align="end">
-                  <div className="text-xs font-medium text-gray-500 px-2 py-1.5">{t('title')}</div>
+                  <div className="text-xs font-medium text-muted-foreground/60 px-2 py-1.5">{t('title')}</div>
                   {servers.length === 0 ? (
                     <div className="text-xs text-gray-400 px-2 py-2">{t('noServers')}</div>
                   ) : (
@@ -207,7 +207,7 @@ export default function ServersPage() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 text-gray-500 hover:text-gray-700"
+            className="h-8 text-muted-foreground/60 hover:text-muted-foreground"
             onClick={() => setSelectedIds(new Set())}
             disabled={bulkLoading}
           >
@@ -218,16 +218,16 @@ export default function ServersPage() {
 
       {isLoading && servers.length === 0 ? (
         <div className="text-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">{tCommon('loading')}</p>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto mb-4" />
+          <p className="text-muted-foreground">{tCommon('loading')}</p>
         </div>
       ) : servers.length === 0 ? (
         <div className="text-center py-16 px-4">
           <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
             <ServerIcon className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-xl font-medium text-gray-900 mb-3">{t('noServers')}</h3>
-          <p className="text-gray-500 mb-8 max-w-md mx-auto">{t('noServersDesc')}</p>
+          <h3 className="text-xl font-medium text-foreground mb-3">{t('noServers')}</h3>
+          <p className="text-muted-foreground/60 mb-8 max-w-md mx-auto">{t('noServersDesc')}</p>
           <Button onClick={handleAddServer} disabled={!imageStatus?.can_create_server}>
             <Plus className="mr-2 h-4 w-4" />
             {t('addServer')}
@@ -236,7 +236,7 @@ export default function ServersPage() {
       ) : (
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600">
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground">
               <input
                 type="checkbox"
                 checked={servers.length > 0 && selectedIds.size === servers.length}

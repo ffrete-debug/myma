@@ -180,8 +180,8 @@ export default function ServerEditPage() {
             {tCommon('back')}
           </Button>
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{tServersEdit('editTitle')}</h1>
-            <p className="text-gray-600">{server?.session_name}</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{tServersEdit('editTitle')}</h1>
+            <p className="text-muted-foreground">{server?.session_name}</p>
           </div>
         </div>
 
@@ -257,9 +257,9 @@ export default function ServerEditPage() {
                       className="absolute inset-y-0 right-0 pr-3 flex items-center"
                     >
                       {showPassword ? (
-                        <EyeOff className="h-4 w-4 text-gray-500" />
+                        <EyeOff className="h-4 w-4 text-muted-foreground/60" />
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-500" />
+                        <Eye className="h-4 w-4 text-muted-foreground/60" />
                       )}
                     </button>
                   </div>

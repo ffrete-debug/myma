@@ -207,7 +207,7 @@ export default function ServerLogsPage() {
         <CardHeader className="py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-sm font-medium text-gray-700">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 {t('serverLogs')}
               </CardTitle>
               <select
@@ -243,13 +243,13 @@ export default function ServerLogsPage() {
         <CardContent>
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
             </div>
           ) : error ? (
             <div className="text-center py-12 text-red-500">{error}</div>
           ) : (
             <div className="bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap overflow-auto max-h-[70vh]">
-              {logs || <span className="text-gray-500">{t('noLogs')}</span>}
+              {logs || <span className="text-muted-foreground/60">{t('noLogs')}</span>}
               <div ref={logEndRef} />
             </div>
           )}

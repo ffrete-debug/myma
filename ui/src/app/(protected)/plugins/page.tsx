@@ -267,7 +267,7 @@ export default function PluginsPage() {
   return (
     <div className="w-full max-w-none py-8">
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{t('title')}</h1>
+        <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('title')}</h1>
         <div className="flex items-center gap-2">
           <select
             className="border rounded px-3 py-2 text-sm"
@@ -300,13 +300,13 @@ export default function PluginsPage() {
           {/* Breadcrumbs + actions */}
           <div className="flex items-center justify-between mb-4">
             <nav className="flex items-center gap-1 text-sm">
-              <button onClick={() => setCurrentPath('/')} className="hover:text-blue-600 flex items-center gap-1">
+              <button onClick={() => setCurrentPath('/')} className="hover:text-blue-400 flex items-center gap-1">
                 <Home className="h-4 w-4" /> {t('root')}
               </button>
               {breadcrumbs.map((part, i) => (
                 <span key={i} className="flex items-center gap-1">
                   <ChevronRight className="h-3 w-3 text-gray-400" />
-                  <button onClick={() => navigateBreadcrumb(i + 1)} className="hover:text-blue-600">
+                  <button onClick={() => navigateBreadcrumb(i + 1)} className="hover:text-blue-400">
                     {part}
                   </button>
                 </span>
@@ -359,7 +359,7 @@ export default function PluginsPage() {
                     }}
                   >
                     <Folder className="h-5 w-5 text-gray-400 mr-3" />
-                    <span className="text-gray-600">..</span>
+                    <span className="text-muted-foreground">..</span>
                   </div>
                 )}
 
@@ -404,7 +404,7 @@ export default function PluginsPage() {
                               className="p-1 hover:bg-gray-200 rounded"
                               title={tCommon('download')}
                             >
-                              <Download className="h-4 w-4 text-gray-500" />
+                              <Download className="h-4 w-4 text-muted-foreground/60" />
                             </a>
                           )}
                           {!entry.is_dir && /\.zip$/i.test(entry.name) && (
@@ -423,11 +423,11 @@ export default function PluginsPage() {
                               className="p-1 hover:bg-gray-200 rounded"
                               title={t('downloadZip')}
                             >
-                              <FileDown className="h-4 w-4 text-green-600" />
+                              <FileDown className="h-4 w-4 text-green-400" />
                             </a>
                           )}
                           <button className="p-1 hover:bg-gray-200 rounded" onClick={() => handleRenameStart(entry)} title={tCommon('rename')}>
-                            <Pencil className="h-4 w-4 text-gray-500" />
+                            <Pencil className="h-4 w-4 text-muted-foreground/60" />
                           </button>
                           <button className="p-1 hover:bg-gray-200 rounded" onClick={() => handleDelete(entry)} title={tCommon('delete')}>
                             <Trash2 className="h-4 w-4 text-red-500" />
@@ -443,7 +443,7 @@ export default function PluginsPage() {
             {uploading && (
               <div className="flex items-center justify-center py-4 border-t bg-blue-50">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-500 mr-2" />
-                <span className="text-sm text-blue-600">{t('uploading')}</span>
+                <span className="text-sm text-blue-400">{t('uploading')}</span>
               </div>
             )}
           </div>
