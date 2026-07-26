@@ -12,14 +12,14 @@
   --color-secondary: #2d2d30;
   --color-secondary-foreground: #cccccc;
   --color-muted: #2d2d30;
-  --color-muted-foreground: #969696;
+  --color-muted-foreground: #a8a8a8;
   --color-accent: #094771;
   --color-accent-foreground: #ffffff;
   --color-destructive: #ce9178;
   --color-destructive-foreground: #ffffff;
   --color-success: #6a9955;
   --color-success-foreground: #ffffff;
-  --color-warning: #dcdcaa;
+  --color-warning: #e8e8c0;
   --color-warning-foreground: #1e1e1e;
   --color-border: #3e3e42;
   --color-input: #3e3e42;

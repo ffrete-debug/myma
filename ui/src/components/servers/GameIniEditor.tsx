@@ -42,89 +42,89 @@ type GameIniCategoryKey =
 const gameIniParams: Record<GameIniCategoryKey, Record<string, GameIniParam>> = {
   gameBasic: {
     bUseSingleplayerSettings: { type: 'boolean', default: false },
-    bDisableStructurePlacementCollision: { type: 'boolean', default: false },
-    bAllowFlyerCarryPvE: { type: 'boolean', default: true },
-    bDisableStructureDecayPvE: { type: 'boolean', default: false },
-    bAllowUnlimitedRespecs: { type: 'boolean', default: true },
-    bAllowPlatformSaddleMultiFloors: { type: 'boolean', default: true },
-    bPassiveDefensesDamageRiderlessDinos: { type: 'boolean', default: true },
-    bPvEDisableFriendlyFire: { type: 'boolean', default: false },
-    bDisableFriendlyFire: { type: 'boolean', default: false },
-    bEnablePvPGamma: { type: 'boolean', default: false },
-    DifficultyOffset: { type: 'number', default: 1.0, min: 0.0, max: 1.0, step: 0.1 },
-    OverrideOfficialDifficulty: { type: 'number', default: 5.0, min: 1.0, max: 10.0, step: 0.1 }
+    bDisableStructurePlacementCollision: { type: 'boolean', default: false, description: 'Permite que estruturas sejam colocadas sobrepostas, desativando a verificação de colisão de posicionamento.' },
+    bAllowFlyerCarryPvE: { type: 'boolean', default: true, description: 'Permite que criaturas voadoras carreguem dinos selvagens no modo PvE.' },
+    bDisableStructureDecayPvE: { type: 'boolean', default: false, description: 'Desativa os temporizadores automáticos de deterioração de estruturas no PvE.' },
+    bAllowUnlimitedRespecs: { type: 'boolean', default: true, description: 'Permite redefinições ilimitadas de atributos e engramas usando o Mindwipe.' },
+    bAllowPlatformSaddleMultiFloors: { type: 'boolean', default: true, description: 'Permite construir múltiplos andares em selas plataforma como Quetzal e Bronto.' },
+    bPassiveDefensesDamageRiderlessDinos: { type: 'boolean', default: true, description: 'Faz com que defesas passivas causem dano a dinos sem montaria.' },
+    bPvEDisableFriendlyFire: { type: 'boolean', default: false, description: 'Desativa completamente o dano amigável no modo PvE.' },
+    bDisableFriendlyFire: { type: 'boolean', default: false, description: 'Desativa o dano amigável em todos os modos de jogo.' },
+    bEnablePvPGamma: { type: 'boolean', default: false, description: 'Permite ajustar o brilho e gama durante o modo PvP.' },
+    DifficultyOffset: { type: 'number', default: 1.0, min: 0.0, max: 1.0, step: 0.1, description: 'Controla a distribuição de níveis dos dinos selvagens. 1.0 = nível máximo 150.' },
+    OverrideOfficialDifficulty: { type: 'number', default: 5.0, min: 1.0, max: 10.0, step: 0.1, description: 'Substitui a dificuldade oficial, alterando o nível máximo dos dinos selvagens.' }
   },
   experienceSettings: {
-    XPMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    PlayerCharacterWaterDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    PlayerCharacterFoodDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    PlayerCharacterStaminaDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    PlayerCharacterHealthRecoveryMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 }
+    XPMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador de toda experiência ganha. 2.0 dobra o XP recebido.' },
+    PlayerCharacterWaterDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de consumo de água do jogador. Menor = drena mais devagar.' },
+    PlayerCharacterFoodDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de consumo de comida do jogador. Menor = drena mais devagar.' },
+    PlayerCharacterStaminaDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de uso de estamina do jogador. Menor = cansa mais devagar.' },
+    PlayerCharacterHealthRecoveryMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da velocidade de regeneração passiva de vida do jogador.' }
   },
   breedingSettings: {
-    MatingIntervalMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    EggHatchSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 50.0, step: 0.1 },
-    BabyMatureSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 50.0, step: 0.1 },
-    BabyFoodConsumptionSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    BabyCuddleIntervalMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    BabyCuddleGracePeriodMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    BabyCuddleLoseImprintQualitySpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 }
+    MatingIntervalMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do intervalo de acasalamento entre reproduções. Menor = intervalos mais curtos.' },
+    EggHatchSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 50.0, step: 0.1, description: 'Multiplicador da velocidade de incubação e eclosão de ovos. Maior = eclosão mais rápida.' },
+    BabyMatureSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 50.0, step: 0.1, description: 'Multiplicador da velocidade de maturação de filhotes. Maior = crescimento mais rápido.' },
+    BabyFoodConsumptionSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de consumo de comida de filhotes. Menor = precisam de menos comida.' },
+    BabyCuddleIntervalMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do intervalo de carinho para imprinting. Menor = imprinting mais frequente.' },
+    BabyCuddleGracePeriodMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do período de carência antes de perder qualidade do imprint dos filhotes.' },
+    BabyCuddleLoseImprintQualitySpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da velocidade de perda de qualidade de imprint quando filhotes não recebem carinho.' }
   },
   itemSettings: {
-    HarvestAmountMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    HarvestHealthMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    ResourcesRespawnPeriodMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    ItemStackSizeMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    CropGrowthSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    GlobalItemDecompositionTimeMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    GlobalCorpseDecompositionTimeMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 }
+    HarvestAmountMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da quantidade de recursos colhidos. Maior = mais recursos por colheita.' },
+    HarvestHealthMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da vida dos recursos minerais e plantas ao serem colhidos.' },
+    ResourcesRespawnPeriodMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do período de reaparecimento de recursos naturais como pedras e madeira.' },
+    ItemStackSizeMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do tamanho máximo da pilha de cada tipo de item no inventário.' },
+    CropGrowthSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da velocidade de crescimento de plantações cultivadas.' },
+    GlobalItemDecompositionTimeMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do tempo de decomposição de itens largados no chão.' },
+    GlobalCorpseDecompositionTimeMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do tempo de decomposição de cadáveres de jogadores.' }
   },
   dinoSettings: {
-    TamingSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 50.0, step: 0.1 },
-    DinoCharacterFoodDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    DinoCharacterStaminaDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    DinoCharacterHealthRecoveryMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    DinoCountMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    WildDinoCharacterFoodDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    WildDinoTorporDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 }
+    TamingSpeedMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 50.0, step: 0.1, description: 'Multiplicador da velocidade de domação. Maior = domação mais rápida.' },
+    DinoCharacterFoodDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de consumo de comida de todos os dinos. Menor = comem menos.' },
+    DinoCharacterStaminaDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de uso de estamina de todos os dinos.' },
+    DinoCharacterHealthRecoveryMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da regeneração passiva de vida dos dinos.' },
+    DinoCountMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da quantidade de dinos selvagens que spawnam. Maior = mais dinos no mapa.' },
+    WildDinoCharacterFoodDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de consumo de comida de dinos selvagens.' },
+    WildDinoTorporDrainMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da taxa de perda de torpor de dinos selvagens. Menor = ficam inconscientes por mais tempo.' }
   },
   tribeSettings: {
-    MaxNumberOfPlayersInTribe: { type: 'number', default: 0, min: 0, max: 100, step: 1 },
-    TribeNameChangeCooldown: { type: 'number', default: 15, min: 0, max: 1440, step: 1 },
-    bPvEAllowTribeWar: { type: 'boolean', default: false },
-    bPvEAllowTribeWarCancel: { type: 'boolean', default: false }
+    MaxNumberOfPlayersInTribe: { type: 'number', default: 0, min: 0, max: 100, step: 1, description: 'Número máximo de jogadores permitidos em uma única tribo. 0 = ilimitado.' },
+    TribeNameChangeCooldown: { type: 'number', default: 15, min: 0, max: 1440, step: 1, description: 'Tempo de espera em dias entre alterações de nome de tribo.' },
+    bPvEAllowTribeWar: { type: 'boolean', default: false, description: 'Permite que tribos declarem guerra a outras tribos no modo PvE.' },
+    bPvEAllowTribeWarCancel: { type: 'boolean', default: false, description: 'Permite que tribos cancelem uma declaração de guerra ativa.' }
   },
   pvpSettings: {
-    bIncreasePvPRespawnInterval: { type: 'boolean', default: false },
-    IncreasePvPRespawnIntervalCheckPeriod: { type: 'number', default: 300, min: 60, max: 3600, step: 60 },
-    IncreasePvPRespawnIntervalMultiplier: { type: 'number', default: 1.0, min: 1.0, max: 5.0, step: 0.1 },
-    IncreasePvPRespawnIntervalBaseAmount: { type: 'number', default: 60, min: 30, max: 600, step: 30 }
+    bIncreasePvPRespawnInterval: { type: 'boolean', default: false, description: 'Aumenta o intervalo de reaparecimento de jogadores no PvP após serem mortos.' },
+    IncreasePvPRespawnIntervalCheckPeriod: { type: 'number', default: 300, min: 60, max: 3600, step: 60, description: 'Período em segundos para verificar a elegibilidade do intervalo de reaparecimento PvP.' },
+    IncreasePvPRespawnIntervalMultiplier: { type: 'number', default: 1.0, min: 1.0, max: 5.0, step: 0.1, description: 'Multiplicador aplicado ao temporizador de reaparecimento após mortes em PvP.' },
+    IncreasePvPRespawnIntervalBaseAmount: { type: 'number', default: 60, min: 30, max: 600, step: 30, description: 'Valor base em segundos do atraso de reaparecimento antes da aplicação do multiplicador PvP.' }
   },
   structureSettings: {
-    StructureDamageMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    StructureResistanceMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    StructureDamageRepairCooldown: { type: 'number', default: 180, min: 0, max: 3600, step: 60 },
-    PvEStructureDecayPeriodMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    MaxStructuresInRange: { type: 'number', default: 1300, min: 100, max: 10000, step: 100 }
+    StructureDamageMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador do dano causado a estruturas. Maior = estruturas recebem mais dano.' },
+    StructureResistanceMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da resistência de estruturas a dano. Maior = estruturas recebem menos dano.' },
+    StructureDamageRepairCooldown: { type: 'number', default: 180, min: 0, max: 3600, step: 60, description: 'Tempo de espera em segundos antes que uma estrutura danificada possa ser reparada.' },
+    PvEStructureDecayPeriodMultiplier: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Multiplicador da duração do temporizador de deterioração de estruturas no PvE.' },
+    MaxStructuresInRange: { type: 'number', default: 1300, min: 100, max: 10000, step: 100, description: 'Número máximo de estruturas permitidas em um raio de proximidade para otimizar o desempenho.' }
   },
   advancedSettings: {
-    bAutoPvETimer: { type: 'boolean', default: false },
-    bAutoPvEUseSystemTime: { type: 'boolean', default: false },
-    AutoPvEStartTimeSeconds: { type: 'number', default: 0, min: 0, max: 86400, step: 3600 },
-    AutoPvEStopTimeSeconds: { type: 'number', default: 0, min: 0, max: 86400, step: 3600 },
-    bOnlyAllowSpecifiedEngrams: { type: 'boolean', default: false },
-    bAutoUnlockAllEngrams: { type: 'boolean', default: false },
-    bShowCreativeMode: { type: 'boolean', default: false },
-    bUseCorpseLocator: { type: 'boolean', default: false },
-    bDisableLootCrates: { type: 'boolean', default: false },
-    bDisableDinoRiding: { type: 'boolean', default: false },
-    bDisableDinoTaming: { type: 'boolean', default: false },
-    bAllowCustomRecipes: { type: 'boolean', default: true }
+    bAutoPvETimer: { type: 'boolean', default: false, description: 'Ativa a alternância automática entre modos PvP e PvE baseada em temporizador.' },
+    bAutoPvEUseSystemTime: { type: 'boolean', default: false, description: 'Usa o horário do sistema para a alternância automática do modo PvE.' },
+    AutoPvEStartTimeSeconds: { type: 'number', default: 0, min: 0, max: 86400, step: 3600, description: 'Horário em segundos (0 a 86400) quando a alternância para PvE é ativada.' },
+    AutoPvEStopTimeSeconds: { type: 'number', default: 0, min: 0, max: 86400, step: 3600, description: 'Horário em segundos (0 a 86400) quando a alternância para PvE é desativada.' },
+    bOnlyAllowSpecifiedEngrams: { type: 'boolean', default: false, description: 'Permite apenas os engramas explicitamente habilitados na lista de engramas permitidos.' },
+    bAutoUnlockAllEngrams: { type: 'boolean', default: false, description: 'Desbloqueia automaticamente todos os engramas para todos os jogadores ao entrar no servidor.' },
+    bShowCreativeMode: { type: 'boolean', default: false, description: 'Exibe a categoria de engramas do modo criativo no menu de criação.' },
+    bUseCorpseLocator: { type: 'boolean', default: false, description: 'Ativa um marcador na bússola apontando para a localização da última morte do jogador.' },
+    bDisableLootCrates: { type: 'boolean', default: false, description: 'Desativa o surgimento de baús de saque no mapa do servidor.' },
+    bDisableDinoRiding: { type: 'boolean', default: false, description: 'Impede que jogadores montem em dinos no servidor.' },
+    bDisableDinoTaming: { type: 'boolean', default: false, description: 'Desativa completamente a domação de dinos no servidor.' },
+    bAllowCustomRecipes: { type: 'boolean', default: true, description: 'Permite que jogadores criem receitas de criação personalizadas.' }
   },
   customSettings: {
-    DayCycleSpeedScale: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    NightTimeSpeedScale: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 },
-    DayTimeSpeedScale: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1 }
+    DayCycleSpeedScale: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Velocidade do ciclo completo de dia e noite. 2.0 = ciclo duas vezes mais rápido.' },
+    NightTimeSpeedScale: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Velocidade da fase noturna especificamente. 2.0 = noites mais curtas.' },
+    DayTimeSpeedScale: { type: 'number', default: 1.0, min: 0.1, max: 10.0, step: 0.1, description: 'Velocidade da fase diurna especificamente. 2.0 = dias mais curtos.' }
   }
 };
 
