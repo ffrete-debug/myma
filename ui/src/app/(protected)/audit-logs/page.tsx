@@ -40,6 +40,7 @@ export default function AuditLogsPage() {
       if (filters.end_date) params.set('end_date', filters.end_date);
 
       const res = await fetch(`/api/audit-logs?${params.toString()}`, { headers: { Authorization: `Bearer ${Cookies.get('auth-token')}` } });
+      if (res.status === 401) { setLogs([]); setTotal(0); setLoading(false); return; }
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setLogs(data.data || []);
