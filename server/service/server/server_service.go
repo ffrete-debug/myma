@@ -85,7 +85,7 @@ func (s *ServerService) GetServers(userID uint, page, limit int) ([]models.Serve
 		limit = 20
 	}
 
-	if err := database.DB.Where("user_id = ?", userID).Count(&total).Error; err != nil {
+	if err := database.DB.Model(&models.Server{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("Count server list : %w", err)
 	}
 
