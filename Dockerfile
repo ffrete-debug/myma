@@ -1,7 +1,7 @@
 # Stage 1: Build Go binary
 FROM golang:1.24-alpine AS builder-go
 WORKDIR /app
-COPY go.mod go.sum ./
+COPY server/go.mod server/go.sum ./
 COPY server/ ./server/
 RUN go build -o /app/bin/ark-commander ./server/main.go
 
@@ -9,7 +9,7 @@ RUN go build -o /app/bin/ark-commander ./server/main.go
 FROM node:20-alpine AS builder-ui
 WORKDIR /app/ui
 COPY ui/package.json ui/package-lock.json ./
-RUN npm ci
+RUN npm install
 COPY ui/ ./
 RUN npm run build
 
