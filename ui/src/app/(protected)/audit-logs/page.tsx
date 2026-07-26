@@ -7,6 +7,7 @@ import { AuditLogFilters } from '@/components/audit/AuditLogFilters';
 import { Button } from '@/components/ui/button';
 import { ClosableAlert } from '@/components/ui/closable-alert';
 import { Loader2, Search, RefreshCw } from 'lucide-react';
+import Cookies from 'js-cookie';
 
 export default function AuditLogsPage() {
   const t = useTranslations('auditLogs');
@@ -38,7 +39,7 @@ export default function AuditLogsPage() {
       if (filters.start_date) params.set('start_date', filters.start_date);
       if (filters.end_date) params.set('end_date', filters.end_date);
 
-      const res = await fetch(`/api/audit-logs?${params.toString()}`);
+      const res = await fetch(`/api/audit-logs?${params.toString()}`, { headers: { Authorization: `Bearer ${Cookies.get('auth-token')}` } });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setLogs(data.data || []);
