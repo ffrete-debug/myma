@@ -64,7 +64,7 @@ export default function AuditLogsPage() {
   return (
     <div className="w-full max-w-none py-8">
       <div className="mb-6">
-        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">{t('title')}</h1>
+        <h1 className="text-2xl lg:text-3xl font-bold text-foreground">{t('title')}</h1>
       </div>
 
       {error && <ClosableAlert variant="destructive" className="mb-4" title={tCommon('error')} onClose={() => setError('')}>{error}</ClosableAlert>}
@@ -73,12 +73,12 @@ export default function AuditLogsPage() {
 
       {loading && logs.length === 0 ? (
         <div className="text-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">{tCommon('loading')}</p>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto mb-4" />
+          <p className="text-muted-foreground">{tCommon('loading')}</p>
         </div>
       ) : logs.length === 0 ? (
         <div className="text-center py-16 px-4">
-          <p className="text-gray-500">{t('noLogs')}</p>
+          <p className="text-muted-foreground">{t('noLogs')}</p>
         </div>
       ) : (
         <div className="rounded-lg border bg-card">
