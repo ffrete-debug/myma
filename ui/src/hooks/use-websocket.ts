@@ -25,8 +25,9 @@ export function useWebSocket(
     const token = Cookies.get('auth-token');
     if (!token) return;
 
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${window.location.host}/api/ws/updates/${serverId}?token=${encodeURIComponent(token)}`;
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
+    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https?:\/\//, (m) => m === 'https:' ? 'wss:' : 'ws:');
+    const url = `${wsBase}/api/ws/updates/${serverId}?token=${encodeURIComponent(token)}`;
 
     const ws = new WebSocket(url);
     wsRef.current = ws;

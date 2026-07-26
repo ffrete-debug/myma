@@ -69,8 +69,9 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
       return;
     }
 
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${window.location.host}/api/ws/rcon/${serverId}?token=${encodeURIComponent(token)}`;
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
+    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https?:\/\//, (m) => m === 'https:' ? 'wss:' : 'ws:');
+    const url = `${wsBase}/api/ws/rcon/${serverId}?token=${encodeURIComponent(token)}`;
     setConnectionState('connecting');
     const ws = new WebSocket(url);
     wsRef.current = ws;
