@@ -143,7 +143,7 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			auditRoutes.GET("", audit.GetAuditLogs)
 
 			// Update status（Issue #3）
-			updateRoutes := api.Group("/updates")
+			updateRoutes := protected.Group("/updates")
 			{
 				updateRoutes.GET("/:id/status", func(c *gin.Context) {
 					serverID, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -152,7 +152,8 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 						return
 					}
 
-					status, err := updateService.GetUpdateStatus(uint(serverID))
+					userID := c.GetUint("user_id")
+					status, err := updateService.GetUpdateStatus(uint(serverID), userID)
 					if err != nil {
 						c.JSON(http.StatusNotFound, gin.H{"error": "Update status "})
 						return

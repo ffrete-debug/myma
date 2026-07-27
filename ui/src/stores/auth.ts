@@ -43,6 +43,20 @@ interface AuthResponse {
   message: string;
 }
 
+// Cookie options for the auth token.
+// NOTE: js-cookie writes from JavaScript, so the cookie can never be httpOnly and
+// stays readable by any script on the page. The real fix is for the backend to
+// issue auth-token as an httpOnly cookie on /api/auth/login and /api/auth/init;
+// these flags are the best hardening available on the client until then.
+const authCookieOptions = () => ({
+  expires: 7,
+  path: '/',
+  sameSite: 'strict' as const,
+  // Only an https origin can carry a secure cookie - on plain http (including
+  // http://localhost during development) the browser would drop it silently.
+  secure: typeof window !== 'undefined' && window.location.protocol === 'https:',
+});
+
 const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   user: null,
@@ -65,7 +79,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
         const response = await axios.post<AuthResponse>('/api/auth/init', credentials);
         const { token, user, message } = response.data;
         set({ token, user, isAuthenticated: true });
-        Cookies.set('auth-token', token, { expires: 7 });
+        Cookies.set('auth-token', token, authCookieOptions());
         return { success: true, message };
       } catch (error) {
         if (axios.isAxiosError(error) && error.response) {
@@ -82,7 +96,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
         const response = await axios.post<AuthResponse>('/api/auth/login', credentials);
         const { token, user, message } = response.data;
         set({ token, user, isAuthenticated: true });
-        Cookies.set('auth-token', token, { expires: 7 });
+        Cookies.set('auth-token', token, authCookieOptions());
         return { success: true, message };
       } catch (error) {
         if (axios.isAxiosError(error) && error.response) {

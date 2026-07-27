@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Server } from '@/stores/servers';
 import { useWebSocket } from '@/hooks/use-websocket';
@@ -14,7 +13,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Play, Square, Loader2, Info, Edit, Trash2, Wifi, Lock, Eye, EyeOff, Copy, RefreshCw, Map, Terminal,
+  Play, Square, Loader2, Info, Edit, Trash2, Wifi, RefreshCw, Map, Terminal,
 } from 'lucide-react';
 
 interface ServerCardProps {
@@ -36,7 +35,6 @@ export function ServerCard({
   server, canStartServer, onStart, onStop, onRestart, onEdit, onDelete, onViewLogs, onViewDetail, mapClickable, selected, onToggleSelect,
 }: ServerCardProps) {
   const t = useTranslations('servers');
-  const [showPassword, setShowPassword] = useState(false);
 
   useWebSocket(server.id, (msg) => {
     if (msg.type === 'update_status' && msg.data?.status) {
@@ -121,23 +119,6 @@ export function ServerCard({
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{t('card.maxPlayers')}</span>
             <span className="font-medium">{server.max_players}</span>
-          </div>
-        </div>
-        <div className="bg-amber-50 dark:bg-amber-950/30 rounded-lg p-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Lock className="h-3.5 w-3.5 text-amber-400 mr-1.5" />
-              <span className="text-xs font-medium text-amber-300 dark:text-amber-100">{t('card.adminPassword')}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="font-mono text-xs">{showPassword ? server.admin_password : '••••••••'}</span>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setShowPassword(!showPassword)}>
-                {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-              </Button>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => navigator.clipboard.writeText(server.admin_password)}>
-                <Copy className="h-3 w-3" />
-              </Button>
-            </div>
           </div>
         </div>
       </CardContent>

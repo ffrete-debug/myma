@@ -56,7 +56,7 @@ type ServerResponse struct {
 	Port          int    `json:"port"`
 	QueryPort     int    `json:"query_port"`
 	RCONPort      int    `json:"rcon_port"`
-	AdminPassword string `json:"admin_password"`
+	AdminPassword string `json:"-"` // Never serialized: use the dedicated RCON endpoint
 	Map           string `json:"map"`
 	MaxPlayers    int    `json:"max_players"` // Max Players
 	GameModIds    string `json:"game_mod_ids"`

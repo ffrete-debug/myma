@@ -23,6 +23,12 @@ type FileInfo struct {
 	ModTime string `json:"mod_time"`
 }
 
+// ShellQuote wraps s in single quotes and escapes any embedded single quote,
+// so the result can be safely interpolated into a `sh -c` command string.
+func ShellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
+}
+
 func (dm *DockerManager) ensureAlpine() error {
 	exists, err := dm.ImageExists("alpine:latest")
 	if err != nil {
@@ -75,8 +81,8 @@ func (dm *DockerManager) RunCommandInVolume(volumeName, volumeMount string, cmd 
 
 func (dm *DockerManager) ListFiles(volumeName, volumeMount, dirPath string) ([]FileInfo, error) {
 	cmd := []string{"sh", "-c", fmt.Sprintf(
-		`find '%s' -mindepth 1 -maxdepth 1 -exec stat -c '%%F|%%s|%%Y|%%a|%%n' {} \; 2>/dev/null`,
-		dirPath,
+		`find %s -mindepth 1 -maxdepth 1 -exec stat -c '%%F|%%s|%%Y|%%a|%%n' {} \; 2>/dev/null`,
+		ShellQuote(dirPath),
 	)}
 	bind := fmt.Sprintf("%s:%s", volumeName, volumeMount)
 
@@ -174,7 +180,7 @@ func (dm *DockerManager) WriteFileToVolume(volumeName, volumeMount, destPath str
 	}
 
 	parentDir := filepath.Dir(destPath)
-	mkdirCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p '%s'", strings.ReplaceAll(parentDir, "'", "'\"'\"'"))}
+	mkdirCmd := []string{"sh", "-c", fmt.Sprintf("mkdir -p %s", ShellQuote(parentDir))}
 	execCfg := container.ExecOptions{
 		Cmd:          mkdirCmd,
 		AttachStdout: true,
@@ -203,8 +209,8 @@ func (dm *DockerManager) BackupVolume(volumeName, backupDir, filename string) er
 	}
 
 	cmd := []string{"sh", "-c", fmt.Sprintf(
-		"tar czf /backup/%s -C /data .",
-		filename,
+		"tar czf %s -C /data .",
+		ShellQuote("/backup/"+filename),
 	)}
 	binds := []string{
 		fmt.Sprintf("%s:/data", volumeName),
@@ -250,8 +256,8 @@ func (dm *DockerManager) RestoreVolume(volumeName, backupDir, filename string) e
 	}
 
 	cmd := []string{"sh", "-c", fmt.Sprintf(
-		"tar xzf /backup/%s -C /data",
-		filename,
+		"tar xzf %s -C /data",
+		ShellQuote("/backup/"+filename),
 	)}
 	binds := []string{
 		fmt.Sprintf("%s:/data", volumeName),

@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -210,6 +212,13 @@ func RefreshToken(c *gin.Context) {
 	})
 }
 
+// tokenFingerprint returns a short non-reversible fingerprint of a token,
+// safe to persist in audit logs for correlation
+func tokenFingerprint(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])[:8]
+}
+
 // Logout User
 // @Summary User
 // @Description JWT
@@ -236,7 +245,7 @@ func Logout(c *gin.Context) {
 	// token
 	utils.BlacklistToken(parts[1], time.Now().Add(24*time.Hour))
 
-	middleware.Log.Log(c.GetUint("user_id"), "auth.logout", "token", parts[1], c.ClientIP())
+	middleware.Log.Log(c.GetUint("user_id"), "auth.logout", "token", tokenFingerprint(parts[1]), c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": " Success",
