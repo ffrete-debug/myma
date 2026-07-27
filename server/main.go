@@ -9,8 +9,10 @@ import (
 	"ark-server-commander/service/update"
 	"ark-server-commander/utils"
 	"ark-server-commander/websocket"
+	"net/http"
 	"os"
 	signal "os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -99,6 +101,14 @@ func main() {
 	// Create Gin instance
 	r := gin.New() // custom middleware, no defaults
 
+	// Trusted proxies configurable via TRUSTED_PROXIES env (comma-separated CIDRs).
+	// Default: trust nothing, so ClientIP() returns the real socket address and a
+	// client-supplied X-Forwarded-For cannot forge audit log IPs or evade rate limits.
+	trustedProxies := splitAndTrim(os.Getenv("TRUSTED_PROXIES"))
+	if err := r.SetTrustedProxies(trustedProxies); err != nil {
+		utils.Fatal("Invalid TRUSTED_PROXIES configuration", zap.Error(err))
+	}
+
 	// Request ID per request
 	r.Use(middleware.RequestID())
 
@@ -128,16 +138,23 @@ func main() {
 	rl := middleware.NewRateLimiter(100, 200, time.Second)
 	r.Use(rl.Middleware())
 
-	// CORS configurable via CORS_ORIGIN env (default: * for dev)
-	corsOrigin := os.Getenv("CORS_ORIGIN")
-	if corsOrigin == "" {
-		corsOrigin = "*"
-	}
+	// CORS allowlist configurable via CORS_ORIGIN env (comma-separated origins).
+	// Default: empty, i.e. same-origin only — no Access-Control-Allow-Origin is emitted.
+	allowedOrigins := splitAndTrim(os.Getenv("CORS_ORIGIN"))
 	r.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", corsOrigin)
+		// Response varies per request Origin, so it must not be cached across origins
+		c.Header("Vary", "Origin")
+
+		origin := c.GetHeader("Origin")
+		for _, allowed := range allowedOrigins {
+			if allowed == origin && origin != "" {
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Credentials", "true")
+				break
+			}
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With")
-		c.Header("Access-Control-Allow-Credentials", "true")
 
 		// Handle preflight requests
 		if c.Request.Method == "OPTIONS" {
@@ -146,6 +163,20 @@ func main() {
 		}
 
 		c.Next()
+	})
+
+	// Tighter rate limiter for credential endpoints: 1 request/IP/5s, burst 10.
+	// Applied by path because the routes themselves are registered in routes.RegisterRoutes.
+	// Registered after CORS so a 429 still carries the CORS headers the browser needs.
+	authRL := middleware.NewRateLimiter(1, 10, 5*time.Second)
+	authLimit := authRL.Middleware()
+	r.Use(func(c *gin.Context) {
+		switch c.Request.URL.Path {
+		case "/api/auth/login", "/api/auth/init":
+			authLimit(c)
+		default:
+			c.Next()
+		}
 	})
 
 	// Register routes
@@ -165,19 +196,51 @@ func main() {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Start server
+	baseURL := "http://localhost:" + config.ServerPort
 	utils.Info("=========================================")
 	utils.Info("🚀 ARK Server Manager started successfully")
-	utils.Info("📍 Server address: http://localhost:8080")
-	utils.Info("📚 API docs: http://localhost:8080/swagger/index.html")
-	utils.Info("🔗 Health check: http://localhost:8080/health")
-	utils.Info("🌐 CORS: Enabled (all origins allowed)")
+	utils.Info("📍 Server address: " + baseURL)
+	utils.Info("📚 API docs: " + baseURL + "/swagger/index.html")
+	utils.Info("🔗 Health check: " + baseURL + "/health")
+	if len(allowedOrigins) == 0 {
+		utils.Info("🌐 CORS: Same-origin only (set CORS_ORIGIN to allow cross-origin requests)")
+	} else {
+		utils.Info("🌐 CORS: Allowed origins: " + strings.Join(allowedOrigins, ", "))
+	}
+	if len(trustedProxies) == 0 {
+		utils.Info("🛡️ Trusted proxies: None (client IP taken from the socket address)")
+	} else {
+		utils.Info("🛡️ Trusted proxies: " + strings.Join(trustedProxies, ", "))
+	}
 	utils.Info("🐳 Docker containerized ARK server management")
 	utils.Info("🔄 Docker image background check...")
 	utils.Info("📋 Docker volumes and config files initialized")
 	utils.Info("📋 Server status synchronized")
 	utils.Info("=========================================")
 
-	if err := r.Run(":8080"); err != nil {
+	// Explicit HTTP server with timeouts so slow clients cannot hold connections open
+	srv := &http.Server{
+		Addr:              ":" + config.ServerPort,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	if err := srv.ListenAndServe(); err != nil {
 		utils.Fatal("Server failed to start", zap.Error(err))
 	}
+}
+
+// splitAndTrim splits a comma-separated environment value into a list of
+// non-empty, whitespace-trimmed entries. Returns nil when the value is empty.
+func splitAndTrim(value string) []string {
+	var items []string
+	for _, item := range strings.Split(value, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }

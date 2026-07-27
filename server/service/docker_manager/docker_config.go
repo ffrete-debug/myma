@@ -169,7 +169,7 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 	//
 	containerConfig = &container.Config{
 		Image: alpineImage,
-		Cmd:   []string{"sh", "-c", fmt.Sprintf("echo '%s' > %s", strings.ReplaceAll(content, "'", "'\"'\"'"), configPath)},
+		Cmd:   []string{"sh", "-c", fmt.Sprintf("echo %s > %s", ShellQuote(content), ShellQuote(configPath))},
 	}
 
 	// Create

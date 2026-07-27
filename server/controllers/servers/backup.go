@@ -132,11 +132,19 @@ func DeleteBackup(c *gin.Context) {
 // @Failure 404 {object} map[string]string "Not found"
 // @Router /backups/download/{filename} [get]
 func DownloadBackup(c *gin.Context) {
+	userID := c.GetUint("user_id")
 	filename := c.Param("filename")
 
 	// Validate filename to prevent path traversal
 	if filename == "" || strings.Contains(filename, "..") || strings.Contains(filename, "/") {
 		utils.BadRequest(c, "Invalid filename", "")
+		return
+	}
+
+	// Ensure the backup belongs to the current user
+	var backupRecord models.Backup
+	if err := database.DB.Where("filename = ? AND user_id = ?", filename, userID).First(&backupRecord).Error; err != nil {
+		utils.NotFound(c, "Resource not found", "Backup not found")
 		return
 	}
 

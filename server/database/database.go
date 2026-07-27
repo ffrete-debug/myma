@@ -1,6 +1,9 @@
 package database
 
 import (
+	"os"
+	"strings"
+
 	"ark-server-commander/config"
 	"ark-server-commander/models"
 	"ark-server-commander/utils"
@@ -16,9 +19,16 @@ var DB *gorm.DB
 func InitDB() {
 	var err error
 
+	// SQL statements carry credentials (admin passwords, password hashes),
+	// so only log them when LOG_LEVEL explicitly asks for debug output
+	gormLogLevel := logger.Warn
+	if strings.ToLower(os.Getenv("LOG_LEVEL")) == "debug" {
+		gormLogLevel = logger.Info
+	}
+
 	// Connect to SQLite database
 	DB, err = gorm.Open(sqlite.Open(config.DBPath), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(gormLogLevel),
 	})
 
 	if err != nil {

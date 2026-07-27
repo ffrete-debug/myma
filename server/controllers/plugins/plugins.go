@@ -41,12 +41,36 @@ func validateServerOwnership(c *gin.Context, serverIDStr string) error {
 	return nil
 }
 
-func cleanPath(p string) string {
+// cleanPath normalizes a user supplied path into an absolute path rooted at "/".
+// The leading slash is added before cleaning so that traversal segments are
+// resolved away instead of being preserved; anything that still escapes the
+// root afterwards is rejected.
+func cleanPath(p string) (string, error) {
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
 	clean := filepath.Clean(p)
 	if !strings.HasPrefix(clean, "/") {
-		clean = "/" + clean
+		return "", fmt.Errorf("invalid path")
 	}
-	return clean
+	for _, seg := range strings.Split(clean, "/") {
+		if seg == ".." {
+			return "", fmt.Errorf("invalid path")
+		}
+	}
+	return clean, nil
+}
+
+// safeFileName reduces an upload supplied name to a single path component and
+// rejects anything that could be used to escape the destination directory.
+func safeFileName(name string) (string, error) {
+	if strings.ContainsAny(name, "/\\") {
+		name = filepath.Base(strings.ReplaceAll(name, "\\", "/"))
+	}
+	if name == "" || name == "." || name == ".." {
+		return "", fmt.Errorf("invalid file name")
+	}
+	return name, nil
 }
 
 func getDM() (*docker_manager.DockerManager, error) {
@@ -80,7 +104,12 @@ func ListFiles(c *gin.Context) {
 		return
 	}
 
-	volumePath := "/plugins" + cleanPath(path)
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	volumePath := "/plugins" + cleaned
 
 	files, err := dm.ListFiles(volumeName, "/plugins", volumePath)
 	if err != nil {
@@ -92,7 +121,7 @@ func ListFiles(c *gin.Context) {
 		files = []docker_manager.FileInfo{}
 	}
 
-	c.JSON(http.StatusOK, gin.H{"files": files, "path": cleanPath(path), "serverId": serverID})
+	c.JSON(http.StatusOK, gin.H{"files": files, "path": cleaned, "serverId": serverID})
 }
 
 func UploadFile(c *gin.Context) {
@@ -118,6 +147,12 @@ func UploadFile(c *gin.Context) {
 		return
 	}
 
+	cleanedDest, err := cleanPath(destPath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	form, err := c.MultipartForm()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid multipart form"})
@@ -132,6 +167,12 @@ func UploadFile(c *gin.Context) {
 	var uploaded []string
 	var extracted []string
 	for _, fh := range files {
+		name, err := safeFileName(fh.Filename)
+		if err != nil {
+			utils.Warn("upload rejected unsafe file name", zap.String("name", fh.Filename))
+			continue
+		}
+
 		src, err := fh.Open()
 		if err != nil {
 			continue
@@ -140,7 +181,7 @@ func UploadFile(c *gin.Context) {
 		var buf bytes.Buffer
 		tw := tar.NewWriter(&buf)
 		hdr := &tar.Header{
-			Name: fh.Filename,
+			Name: name,
 			Size: fh.Size,
 			Mode: 0644,
 		}
@@ -152,21 +193,21 @@ func UploadFile(c *gin.Context) {
 		tw.Close()
 		src.Close()
 
-		dest := "/plugins" + cleanPath(destPath) + "/" + fh.Filename
+		dest := "/plugins" + cleanedDest + "/" + name
 		if err := dm.WriteFileToVolume(volumeName, "/plugins", dest, &buf); err != nil {
-			utils.Error("upload file failed", zap.String("name", fh.Filename), zap.Error(err))
+			utils.Error("upload file failed", zap.String("name", name), zap.Error(err))
 			continue
 		}
-		uploaded = append(uploaded, fh.Filename)
+		uploaded = append(uploaded, name)
 
 		// Auto-extract .zip files
-		if strings.HasSuffix(strings.ToLower(fh.Filename), ".zip") {
-			extractDir := "/plugins" + cleanPath(destPath)
+		if strings.HasSuffix(strings.ToLower(name), ".zip") {
+			extractDir := "/plugins" + cleanedDest
 			cmd := []string{"unzip", "-o", dest, "-d", extractDir}
 			if _, err := dm.RunCommandInVolume(volumeName, "/plugins", cmd); err != nil {
-				utils.Error("auto-extract zip failed", zap.String("name", fh.Filename), zap.Error(err))
+				utils.Error("auto-extract zip failed", zap.String("name", name), zap.Error(err))
 			} else {
-				extracted = append(extracted, fh.Filename)
+				extracted = append(extracted, name)
 			}
 		}
 	}
@@ -202,7 +243,16 @@ func DeleteFile(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	fullPath := mount + cleanPath(path)
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if cleaned == "/" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot delete the plugins root"})
+		return
+	}
+	fullPath := mount + cleaned
 	cmd := []string{"rm", "-rf", fullPath}
 	if _, err := dm.RunCommandInVolume(volumeName, mount, cmd); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "delete failed"})
@@ -237,14 +287,28 @@ func RenameFile(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	fullOld := mount + cleanPath(oldPath)
-	fullNew := mount + cleanPath(newPath)
+	cleanedOld, err := cleanPath(oldPath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	cleanedNew, err := cleanPath(newPath)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if cleanedOld == "/" || cleanedNew == "/" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot rename the plugins root"})
+		return
+	}
+	fullOld := mount + cleanedOld
+	fullNew := mount + cleanedNew
 
 	cmd := []string{"sh", "-c", fmt.Sprintf(
-		"mkdir -p '%s' && mv '%s' '%s'",
-		strings.ReplaceAll(filepath.Dir(fullNew), "'", "'\"'\"'"),
-		strings.ReplaceAll(fullOld, "'", "'\"'\"'"),
-		strings.ReplaceAll(fullNew, "'", "'\"'\"'"),
+		"mkdir -p %s && mv %s %s",
+		docker_manager.ShellQuote(filepath.Dir(fullNew)),
+		docker_manager.ShellQuote(fullOld),
+		docker_manager.ShellQuote(fullNew),
 	)}
 	if _, err := dm.RunCommandInVolume(volumeName, mount, cmd); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "rename failed"})
@@ -278,7 +342,12 @@ func CreateDir(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	cmd := []string{"mkdir", "-p", mount + cleanPath(path)}
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	cmd := []string{"mkdir", "-p", mount + cleaned}
 	if _, err := dm.RunCommandInVolume(volumeName, mount, cmd); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "mkdir failed"})
 		return
@@ -311,7 +380,12 @@ func ReadFile(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	reader, err := dm.ReadFileFromVolume(volumeName, mount, mount+cleanPath(path))
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	reader, err := dm.ReadFileFromVolume(volumeName, mount, mount+cleaned)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "read file failed"})
 		return
@@ -362,12 +436,17 @@ func WriteFile(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	dest := mount + cleanPath(path)
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	dest := mount + cleaned
 
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 	hdr := &tar.Header{
-		Name: filepath.Base(path),
+		Name: filepath.Base(cleaned),
 		Size: int64(len(req.Content)),
 		Mode: 0644,
 	}
@@ -410,7 +489,12 @@ func UnzipFile(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	fullPath := mount + cleanPath(path)
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	fullPath := mount + cleaned
 	extractDir := filepath.Dir(fullPath)
 
 	cmd := []string{"unzip", "-o", fullPath, "-d", extractDir}
@@ -451,7 +535,12 @@ func ZipDownload(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	baseName := filepath.Base(cleanPath(path))
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	baseName := filepath.Base(cleaned)
 	if baseName == "" || baseName == "." || baseName == "/" {
 		baseName = "plugins"
 	}
@@ -459,10 +548,10 @@ func ZipDownload(c *gin.Context) {
 	tempZip := mount + "/.__ark_temp_zip_" + zipName
 
 	// Install zip, create archive, then stream it out via tar
-	mountDir := filepath.Dir(mount + cleanPath(path))
+	mountDir := filepath.Dir(mount + cleaned)
 	createCmd := []string{"sh", "-c",
-		fmt.Sprintf("apk add --no-cache zip unzip >/dev/null 2>&1 && cd '%s' && zip -r '%s' . >/dev/null 2>&1",
-			mountDir, tempZip)}
+		fmt.Sprintf("apk add --no-cache zip unzip >/dev/null 2>&1 && cd %s && zip -r %s . >/dev/null 2>&1",
+			docker_manager.ShellQuote(mountDir), docker_manager.ShellQuote(tempZip))}
 	if _, err := dm.RunCommandInVolume(volumeName, mount, createCmd); err != nil {
 		utils.Error("zip creation failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "zip creation failed"})
@@ -518,7 +607,12 @@ func DownloadFile(c *gin.Context) {
 	}
 
 	mount := "/plugins"
-	reader, err := dm.ReadFileFromVolume(volumeName, mount, mount+cleanPath(path))
+	cleaned, err := cleanPath(path)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	reader, err := dm.ReadFileFromVolume(volumeName, mount, mount+cleaned)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "read file failed"})
 		return
@@ -532,7 +626,7 @@ func DownloadFile(c *gin.Context) {
 		return
 	}
 
-	fileName := filepath.Base(path)
+	fileName := filepath.Base(cleaned)
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Header("Content-Type", "application/octet-stream")
 	io.Copy(c.Writer, tarReader)

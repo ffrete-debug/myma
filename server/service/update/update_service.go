@@ -56,7 +56,11 @@ func (s *UpdateService) CompleteUpdate(serverID uint) {
 	s.hub.BroadcastToServer(serverID, status)
 }
 
-func (s *UpdateService) GetUpdateStatus(serverID uint) (*models.UpdateStatus, error) {
+func (s *UpdateService) GetUpdateStatus(serverID uint, userID uint) (*models.UpdateStatus, error) {
+	var server models.Server
+	if err := s.db.Where("id = ? AND user_id = ?", serverID, userID).First(&server).Error; err != nil {
+		return nil, err
+	}
 	var status models.UpdateStatus
 	if err := s.db.Where("server_id = ?", serverID).Last(&status).Error; err != nil {
 		return nil, err

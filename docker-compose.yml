@@ -5,6 +5,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # GID of the host's "docker" group, so the non-root runtime user can
+        # open /var/run/docker.sock. Find it with:
+        #   stat -c '%g' /var/run/docker.sock
+        DOCKER_GID: ${DOCKER_GID:-999}
     container_name: ark-server-manager
     ports:
       - "8080:8080"
@@ -13,9 +18,11 @@ services:
       - .env
     volumes:
       - ./data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
+      # Required: the app manages ARK game-server containers via the Docker SDK.
+      # :ro only makes the socket file itself read-only on the bind; the Docker
+      # API reached through it is still fully read-write. Defence in depth only.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
-    privileged: true
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
