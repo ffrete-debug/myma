@@ -4,9 +4,7 @@ import { headers } from 'next/headers';
 
 const getApiBase = () => process.env.NEXT_PUBLIC_API_BASE;
 
-export async function GET() {
-  // Authenticate from the explicit Authorization header rather than the ambient
-  // auth-token cookie: a cookie-authenticated route is reachable cross-site.
+export async function GET(request: Request) {
   const headersList = await headers();
   const authorization = headersList.get('authorization');
 
@@ -19,13 +17,14 @@ export async function GET() {
   };
 
   try {
-    const url = `${getApiBase()}/images/check-updates`;
-    const response = await axios.get(url, config);
+    const url = new URL(request.url);
+    const queryString = url.searchParams.toString();
+    const response = await axios.get(`${getApiBase()}/images/affected?${queryString}`, config);
     return NextResponse.json(response.data);
   } catch (error: unknown) {
     const axiosError = error as { response?: { data?: { error?: string }, status?: number } };
     return NextResponse.json({
-      error: axiosError.response?.data?.error || 'Failed to check updates'
+      error: axiosError.response?.data?.error || 'Failed to fetch affected servers'
     }, { status: axiosError.response?.status || 500 });
   }
 }

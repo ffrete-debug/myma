@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -302,6 +302,15 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
   const [visualConfig, setVisualConfig] = useState<Record<string, string | number | boolean>>({});
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<GameUserSettingsCategoryKey>('serverBasic');
+  // Raw text held while a number field is being typed, so that intermediate states
+  // that are not valid numbers ('', '-', '1.') survive instead of being swallowed.
+  const [numberDrafts, setNumberDrafts] = useState<Record<string, string>>({});
+
+  // Latest config, readable synchronously from event handlers without putting a
+  // side effect inside a state updater (updaters must stay pure - React may call
+  // them twice under StrictMode / concurrent replay).
+  const visualConfigRef = useRef<Record<string, string | number | boolean>>({});
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper functions with i18n support
   const getCategoryName = (categoryKey: GameUserSettingsCategoryKey): string => {
@@ -358,11 +367,26 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
       const mergedConfig = { ...defaultConfig, ...values };
       setVisualConfig(mergedConfig);
     } catch (error) {
-      console.error(' :', error);
+      console.error('Failed to parse GameUserSettings.ini, falling back to defaults:', error);
       // Parse
       setVisualConfig(defaultConfig);
     }
   }, [tDefaultValues]);
+
+  // Keep the mirror in step with state updates that did not come from handleVisualChange.
+  useEffect(() => {
+    visualConfigRef.current = visualConfig;
+  }, [visualConfig]);
+
+  // Drop any pending sync when the editor unmounts.
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current !== null) {
+        clearTimeout(syncTimerRef.current);
+        syncTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // InitializeSettings
   useEffect(() => {
@@ -588,7 +612,7 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
       setTextContent(iniContent);
       onChange?.(iniContent);
     } catch (error) {
-      console.error(' :', error);
+      console.error('Failed to generate GameUserSettings.ini from the visual editor:', error);
     }
   }, [onChange, tDefaultValues]);
 
@@ -617,19 +641,24 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
 
       setEditMode(mode);
     } catch (error) {
-      console.error(' :', error);
+      console.error('Failed to switch GameUserSettings edit mode:', error);
     }
   };
 
   const handleVisualChange = (paramKey: string, value: string | number | boolean) => {
-    setVisualConfig(prev => {
-      const newConfig = { ...prev, [paramKey]: value };
-      // 
-      setTimeout(() => {
-        syncVisualToTextWithConfig(newConfig);
-      }, 0);
-      return newConfig;
-    });
+    const newConfig = { ...visualConfigRef.current, [paramKey]: value };
+    visualConfigRef.current = newConfig;
+    setVisualConfig(newConfig);
+
+    // The sync is a side effect (it calls onChange), so it is scheduled here rather
+    // than from inside the state updater. Coalesce bursts of keystrokes.
+    if (syncTimerRef.current !== null) {
+      clearTimeout(syncTimerRef.current);
+    }
+    syncTimerRef.current = setTimeout(() => {
+      syncTimerRef.current = null;
+      syncVisualToTextWithConfig(visualConfigRef.current);
+    }, 0);
   };
 
   const togglePasswordVisibility = (paramKey: string) => {
@@ -658,12 +687,25 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
           <div className="space-y-1">
             <Input
               type="number"
-              value={String(currentValue)}
+              value={numberDrafts[paramKey] ?? String(currentValue)}
               onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (!isNaN(value)) {
-                  handleVisualChange(paramKey, value);
+                const raw = e.target.value;
+                // Keep the raw text so the field can be cleared and a decimal point
+                // (or leading '-') can be typed without the value snapping back.
+                setNumberDrafts(prev => ({ ...prev, [paramKey]: raw }));
+                const parsed = Number.parseFloat(raw);
+                if (!Number.isNaN(parsed)) {
+                  handleVisualChange(paramKey, parsed);
                 }
+              }}
+              onBlur={() => {
+                // Hand control back to the committed value once editing stops.
+                setNumberDrafts(prev => {
+                  if (!(paramKey in prev)) return prev;
+                  const next = { ...prev };
+                  delete next[paramKey];
+                  return next;
+                });
               }}
               min={param.min}
               max={param.max}

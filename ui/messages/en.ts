@@ -7,6 +7,7 @@ export default {
     delete: 'Delete',
     edit: 'Edit',
     add: 'Add',
+    create: 'Create',
     close: 'Close',
     loading: 'Loading...',
     error: 'Error',
@@ -180,6 +181,10 @@ export default {
       imageMissingManualDownload: 'Images Missing, Please Download Manually',
       downloading: 'Downloading',
       ready: 'Ready',
+      cancel: 'Cancel',
+      download: 'Download',
+      update: 'Update',
+      updateAvailable: 'Update Available',
       notReady: 'Not Ready',
       waitingDownload: 'Waiting Download',
       layerProgress: 'Layer Download Progress',
@@ -231,6 +236,8 @@ export default {
     noLogs: 'No logs yet',
     getServerListFailed: 'Failed to get server list, please try again later',
     loadServerInfoFailed: 'Failed to load server info, please try again later',
+    fetchLogsFailed: 'Failed to fetch logs, please try again later',
+    serverUpdateError: 'Failed to update server, please try again later',
     operationFailed: 'Operation failed, please try again later',
     deleteFailed: 'Delete failed, please try again later',
     startServerFailed: 'Failed to start server, please try again later',
@@ -245,6 +252,8 @@ export default {
     bulkRestart: 'Bulk Restart',
     clearSelection: 'Clear Selection',
     page: 'Page',
+    next: 'Next',
+    previous: 'Previous',
     // Backup & Restore
     backup: 'Backup',
     restore: 'Restore',
@@ -282,6 +291,7 @@ export default {
       rconConnectionInfo: 'RCON Connection Info',
       serverIdentifier: 'Server Identifier',
       rconPort: 'RCON Port',
+      serverPort: 'Server Port',
       adminPassword: 'Admin Password',
       editServer: 'Edit Server',
       deleteServer: 'Delete Server',
@@ -309,6 +319,7 @@ export default {
     // Server edit related
     edit: {
       title: 'Server Edit',
+      loadServerInfoFailed: 'Failed to load server info, please try again later',
       createTitle: 'Add Server',
       editTitle: 'Edit Server',
       createServerDesc: 'Configure and create a new ARK server instance',
@@ -394,6 +405,10 @@ export default {
       format: 'Format',
       content: 'Content',
       placeholder: 'Enter configuration content...',
+      placeholders: {
+        gameIni: 'Enter Game.ini configuration content...',
+        gameUserSettings: 'Enter GameUserSettings.ini configuration content...',
+      },
       description: 'This file contains basic server settings such as port, password, max players, etc.',
       visualEditModeDesc: 'Visual Edit Mode',
       visualEditModeTip: 'Modify parameters through form controls. Hover over the icon next to parameter names to view detailed descriptions.',
@@ -854,6 +869,7 @@ export default {
       DisableCryopodEnemyCheck: 'Disable Cryopod Enemy Check',
       DisableCryopodFridgeRequirement: 'Disable Cryopod Fridge Requirement',
       AllowCryoFridgeOnSaddle: 'Allow Cryo Fridge On Saddle',
+      MaxTrainCars: 'Max Train Cars',
       MaxHexagonsPerCharacter: 'Max Hexagons Per Character',
       AllowTekSuitPowersInGenesis: 'Allow Tek Suit Powers In Genesis',
       CustomDynamicConfigUrl: 'Custom Dynamic Config URL'
@@ -1019,6 +1035,7 @@ BabyImprintAmountMultiplier=1.0`
     fetchPlayers: 'Fetch Players',
     noOnlinePlayers: 'No online players found',
     onlineNow: 'Online Now',
+    onlinePlayers: 'Online Players',
     maxPlayers: 'Max Players',
     server: 'Server',
     session: 'Session',
@@ -1035,6 +1052,7 @@ BabyImprintAmountMultiplier=1.0`
   // Audit logs
   auditLogs: {
     title: 'Audit Logs',
+    page: 'Page',
     noLogs: 'No audit log entries found',
     fetchFailed: 'Failed to load audit logs',
     filterUserID: 'User ID',

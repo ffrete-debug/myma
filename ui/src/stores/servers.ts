@@ -21,11 +21,42 @@ export interface Server {
     updated_at: string;
 }
 
+/**
+ * Stable, translatable error codes. Stores cannot call `useTranslations`, so we
+ * expose a code and let components resolve it against the `errors` namespace
+ * (e.g. `useTranslations('errors')(code)`).
+ */
+export type ServersErrorCode =
+    | 'authTokenMissing'
+    | 'fetchServersFailed'
+    | 'createServerFailed'
+    | 'updateServerFailed'
+    | 'deleteServerFailed'
+    | 'getServerFailed'
+    | 'getImageStatusFailed'
+    | 'startServerFailed'
+    | 'stopServerFailed'
+    | 'restartServerFailed';
+
+/** Error thrown by this store, carrying a translatable code. */
+export class ServersError extends Error {
+    readonly code: ServersErrorCode;
+
+    constructor(code: ServersErrorCode) {
+        super(code);
+        this.name = 'ServersError';
+        this.code = code;
+    }
+}
+
+const toErrorCode = (error: unknown, fallback: ServersErrorCode): ServersErrorCode =>
+    error instanceof ServersError ? error.code : fallback;
+
 // Define server state type
 interface ServersState {
     servers: Server[];
     isLoading: boolean;
-    error: string | null;
+    error: ServersErrorCode | null;
     imageStatus: ImageStatus | null;
     currentPage: number;
     pageSize: number;
@@ -76,7 +107,7 @@ interface ServersActions {
 const getAuthHeaders = () => {
     const token = Cookies.get('auth-token');
     if (!token) {
-        throw new Error('Authentication token not found');
+        throw new ServersError('authTokenMissing');
     }
     return {
         'Authorization': `Bearer ${token}`,
@@ -106,7 +137,7 @@ const useServersStore = create<ServersState>((set, get) => ({
                     totalServers: response.data.total || 0,
                 });
             } catch (error) {
-                set({ error: 'Failed to fetch server list' });
+                set({ error: toErrorCode(error, 'fetchServersFailed') });
                 throw error;
             } finally {
                 set({ isLoading: false });
@@ -122,7 +153,7 @@ const useServersStore = create<ServersState>((set, get) => ({
                 set((state) => ({ servers: [...state.servers, newServer] }));
                 return newServer;
             } catch (error) {
-                set({ error: 'Failed to create server' });
+                set({ error: toErrorCode(error, 'createServerFailed') });
                 throw error;
             }
         },
@@ -135,7 +166,7 @@ const useServersStore = create<ServersState>((set, get) => ({
                 }));
                 return updatedServer;
             } catch (error) {
-                set({ error: 'Failed to update server' });
+                set({ error: toErrorCode(error, 'updateServerFailed') });
                 throw error;
             }
         },
@@ -146,7 +177,7 @@ const useServersStore = create<ServersState>((set, get) => ({
                     servers: state.servers.filter((s) => s.id !== serverId),
                 }));
             } catch (error) {
-                set({ error: 'Failed to delete server' });
+                set({ error: toErrorCode(error, 'deleteServerFailed') });
                 throw error;
             }
         },
@@ -155,7 +186,7 @@ const useServersStore = create<ServersState>((set, get) => ({
                 const response = await axios.get(`/api/servers/${serverId}`, { headers: getAuthHeaders() });
                 return response.data.data;
             } catch (error) {
-                set({ error: 'Failed to get server info' });
+                set({ error: toErrorCode(error, 'getServerFailed') });
                 throw error;
             }
         },
@@ -164,37 +195,39 @@ const useServersStore = create<ServersState>((set, get) => ({
                 const response = await axios.get('/api/images/status', { headers: getAuthHeaders() });
                 set({ imageStatus: response.data.data });
             } catch (error) {
-                set({ error: 'Failed to get image status' });
+                set({ error: toErrorCode(error, 'getImageStatusFailed') });
                 throw error;
             }
         },
         startServer: async (serverId) => {
             try {
                 await axios.post(`/api/servers/${serverId}/start`, {}, { headers: getAuthHeaders() });
+                // Optimistic intermediate state only. The terminal status ('running'
+                // or 'stopped' if the container failed) arrives via the status socket
+                // or the next fetch - never fabricate it on a timer.
                 get().actions.updateServerStatus(serverId, 'starting');
-                setTimeout(() => get().actions.updateServerStatus(serverId, 'running'), 3000);
             } catch (error) {
-                set({ error: 'Failed to start server' });
+                set({ error: toErrorCode(error, 'startServerFailed') });
                 throw error;
             }
         },
         stopServer: async (serverId) => {
             try {
                 await axios.post(`/api/servers/${serverId}/stop`, {}, { headers: getAuthHeaders() });
+                // Optimistic intermediate state only; the real status follows.
                 get().actions.updateServerStatus(serverId, 'stopping');
-                setTimeout(() => get().actions.updateServerStatus(serverId, 'stopped'), 2000);
             } catch (error) {
-                set({ error: 'Failed to stop server' });
+                set({ error: toErrorCode(error, 'stopServerFailed') });
                 throw error;
             }
         },
         restartServer: async (serverId) => {
             try {
                 await axios.post(`/api/servers/${serverId}/restart`, {}, { headers: getAuthHeaders() });
+                // Optimistic intermediate state only; the real status follows.
                 get().actions.updateServerStatus(serverId, 'restarting');
-                setTimeout(() => get().actions.updateServerStatus(serverId, 'running'), 5000);
             } catch (error) {
-                set({ error: 'Failed to restart server' });
+                set({ error: toErrorCode(error, 'restartServerFailed') });
                 throw error;
             }
         },
