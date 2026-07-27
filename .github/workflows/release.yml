@@ -5,12 +5,26 @@ on:
     tags:
       - 'v*'
 
+# Least privilege. `contents: write` is required: action-gh-release creates
+# the GitHub Release and uploads assets. Nothing else is needed - in
+# particular this workflow does not touch packages, issues or PRs.
+permissions:
+  contents: read
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v4
+      with:
+        # generate_release_notes diffs against the previous tag, which needs
+        # full history rather than the default shallow clone.
+        fetch-depth: 0
     - name: Create Release
-      uses: softprops/action-gh-release@v2
+      # Pinned to a commit SHA: this action runs with `contents: write`, so a
+      # moved tag would be able to push to the repository.
+      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
       with:
         generate_release_notes: true

@@ -1,0 +1,82 @@
+# Docker build context exclusions.
+#
+# Everything not excluded here is uploaded to the daemon on every build and,
+# because the Dockerfile does `COPY ui/ ./`, ends up inside an intermediate
+# image layer. In this tree ui/node_modules (~800 MB) plus ui/.next (~300 MB)
+# alone are about a gigabyte of host-built artefacts that the image must not
+# contain: node_modules would silently shadow the `npm ci` install, and a stale
+# host .next would be overwritten by `npm run build` but still be paid for in
+# upload time and layer size.
+#
+# Rule of thumb when editing: the build only needs server/ (Go sources +
+# go.mod/go.sum), ui/ minus its generated output, and entrypoint.sh.
+
+# --- Version control / CI ---------------------------------------------------
+.git
+.gitignore
+.gitattributes
+.gitmodules
+.github
+
+# --- Node / Next.js generated output ----------------------------------------
+# `npm ci` recreates node_modules inside the image; `npm run build` recreates
+# .next. Both must come from the image, never from the host.
+**/node_modules
+**/.next
+**/.turbo
+**/.swc
+**/*.tsbuildinfo
+**/npm-debug.log*
+**/.eslintcache
+**/coverage
+**/.vitest
+
+# --- Environment files ------------------------------------------------------
+# No stage reads a .env, and shipping one would bake host-local (possibly
+# secret) values into a layer. The one build-time value the frontend needs,
+# NEXT_PUBLIC_API_BASE, is a --build-arg instead; see the Dockerfile.
+**/.env
+**/.env.*
+!**/.env.example
+
+# --- Go / build output ------------------------------------------------------
+bin
+server/bin
+**/*.exe
+**/*.test
+**/*.out
+
+# --- Local databases and runtime data ---------------------------------------
+# /data is a bind mount at runtime; a host copy must never be baked in.
+data
+**/*.db
+**/*.db-journal
+**/*.sqlite
+**/*.sqlite3
+
+# --- Python helper scripts (repo tooling, not part of the image) ------------
+**/__pycache__
+**/*.py[cod]
+*.py
+pyproject.toml
+
+# --- Docs, agent config and repo metadata -----------------------------------
+docs
+skills
+*.md
+LICENSE
+Makefile
+
+# --- Docker's own files -----------------------------------------------------
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# --- Editor / OS junk -------------------------------------------------------
+.idea
+.vscode
+**/.DS_Store
+**/Thumbs.db
+**/*.swp
+**/*.swo

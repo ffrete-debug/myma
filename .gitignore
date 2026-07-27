@@ -1,17 +1,43 @@
+# OS / editor
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# Go build output
 bin/
 *.exe
 *.test
 *.out
+
+# Node / Next.js
 node_modules/
 .next/
 .cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Runtime data
 data/
+
+# Local databases (server/config defaults DBPath to the relative "ark_server.db",
+# so `make run` / `go run .` writes server/ark_server.db outside data/)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Environment files - .env.example is the tracked template
 .env
-.env.local
-.pyc
+.env.*
+!.env.example
+# ui/.env.development holds no secret: it is the non-secret localhost default
+# that `npm run dev` needs, because the ~30 Next route handlers under
+# ui/src/app/api/ read process.env.NEXT_PUBLIC_API_BASE with no fallback.
+# Without it a dev server builds request URLs starting with "undefined".
+!ui/.env.development
