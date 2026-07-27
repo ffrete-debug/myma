@@ -4,9 +4,7 @@ import { headers } from 'next/headers';
 
 const getApiBase = () => process.env.NEXT_PUBLIC_API_BASE;
 
-export async function GET() {
-  // Authenticate from the explicit Authorization header rather than the ambient
-  // auth-token cookie: a cookie-authenticated route is reachable cross-site.
+async function proxyRequest(request: Request, method: 'GET' | 'POST') {
   const headersList = await headers();
   const authorization = headersList.get('authorization');
 
@@ -19,13 +17,28 @@ export async function GET() {
   };
 
   try {
-    const url = `${getApiBase()}/images/check-updates`;
-    const response = await axios.get(url, config);
+    let response;
+    if (method === 'GET') {
+      const queryString = new URL(request.url).searchParams.toString();
+      const url = queryString ? `${getApiBase()}/backups?${queryString}` : `${getApiBase()}/backups`;
+      response = await axios.get(url, config);
+    } else {
+      const body = await request.json();
+      response = await axios.post(`${getApiBase()}/backups`, body, config);
+    }
     return NextResponse.json(response.data);
   } catch (error: unknown) {
     const axiosError = error as { response?: { data?: { error?: string }, status?: number } };
     return NextResponse.json({
-      error: axiosError.response?.data?.error || 'Failed to check updates'
+      error: axiosError.response?.data?.error || 'Request failed'
     }, { status: axiosError.response?.status || 500 });
   }
+}
+
+export async function GET(request: Request) {
+  return proxyRequest(request, 'GET');
+}
+
+export async function POST(request: Request) {
+  return proxyRequest(request, 'POST');
 }

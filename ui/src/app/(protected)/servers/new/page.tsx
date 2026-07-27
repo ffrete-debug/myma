@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { Server } from '@/stores/servers';
@@ -17,6 +17,9 @@ import { ServerArgsEditor } from '@/components/servers/ServerArgsEditor';
 import { MapSelector } from '@/components/servers/MapSelector';
 import { PresetSelector } from '@/components/servers/PresetSelector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Derived from the editor itself so it keeps tracking that component's contract.
+type ServerArgsValue = NonNullable<React.ComponentProps<typeof ServerArgsEditor>['value']>;
 
 export default function ServerNewPage() {
   const t = useTranslations('servers.edit');
@@ -44,7 +47,16 @@ export default function ServerNewPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const serverArgs = useMemo<ServerArgsValue>(() => {
+    const raw = (formData.server_args ?? {}) as Partial<ServerArgsValue>;
+    return {
+      query_params: raw.query_params ?? {},
+      command_line_args: raw.command_line_args ?? {},
+      custom_args: raw.custom_args ?? [],
+    };
+  }, [formData.server_args]);
+
+  const handleChange =(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const isNumber = type === 'number';
     setFormData((prev) => ({ ...prev, [name]: isNumber ? Number(value) : value }));
@@ -185,13 +197,15 @@ export default function ServerNewPage() {
                     }} />
                   </div>
                 </details>
-                <GameIniEditor />
+                <GameIniEditor
+                  value={formData.game_ini}
+                  onChange={(v) => setFormData(p => ({ ...p, game_ini: v }))}
+                />
               </div>
             </TabsContent>
 
             <TabsContent value="server_args">
-              {/* @ts-expect-error: Prop 'value' is not available on type 'IntrinsicAttributes' */}
-              <ServerArgsEditor value={formData.server_args} onChange={(v) => setFormData(p => ({ ...p, server_args: v }))} />
+              <ServerArgsEditor value={serverArgs} onChange={(v) => setFormData(p => ({ ...p, server_args: v }))} />
             </TabsContent>
           </Tabs>
 

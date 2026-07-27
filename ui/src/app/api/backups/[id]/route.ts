@@ -4,9 +4,8 @@ import { headers } from 'next/headers';
 
 const getApiBase = () => process.env.NEXT_PUBLIC_API_BASE;
 
-export async function GET() {
-  // Authenticate from the explicit Authorization header rather than the ambient
-  // auth-token cookie: a cookie-authenticated route is reachable cross-site.
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const headersList = await headers();
   const authorization = headersList.get('authorization');
 
@@ -19,13 +18,13 @@ export async function GET() {
   };
 
   try {
-    const url = `${getApiBase()}/images/check-updates`;
-    const response = await axios.get(url, config);
+    const url = `${getApiBase()}/backups/${encodeURIComponent(id)}`;
+    const response = await axios.delete(url, config);
     return NextResponse.json(response.data);
   } catch (error: unknown) {
     const axiosError = error as { response?: { data?: { error?: string }, status?: number } };
     return NextResponse.json({
-      error: axiosError.response?.data?.error || 'Failed to check updates'
+      error: axiosError.response?.data?.error || 'Failed to delete backup'
     }, { status: axiosError.response?.status || 500 });
   }
 }

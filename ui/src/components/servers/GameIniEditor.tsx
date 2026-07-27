@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,21 +144,41 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
   const t = useTranslations('servers.editor');
   const tCategories = useTranslations('servers.gameIniCategories');
   const tParams = useTranslations('servers.gameIniParams');
+  const tParamDescriptions = useTranslations('servers.gameIniParamDescriptions');
   const [editMode, setEditMode] = useState<'visual' | 'text'>('visual');
   const [textContent, setTextContent] = useState('');
   const [visualConfig, setVisualConfig] = useState<Record<string, string | number | boolean>>({});
   const [activeTab, setActiveTab] = useState<GameIniCategoryKey>('gameBasic');
   const [isUserEditing, setIsUserEditing] = useState(false);
-  const [lastUserEditTime, setLastUserEditTime] = useState(0);
+  // Raw text being typed into a number field, so partial input ("", "1.") survives.
+  const [numberDrafts, setNumberDrafts] = useState<Record<string, string>>({});
+
+  // Keep the latest onChange in a ref so the callbacks below stay stable even
+  // when the parent passes a new inline arrow function on every render.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  // Content we emitted ourselves, so the echoed `value` does not get reparsed.
+  const lastEmittedRef = useRef<string | null>(null);
+  // Only propagate upwards after the user actually touched the editor, so that
+  // merely opening a server does not rewrite its stored Game.ini.
+  const hasUserEditedRef = useRef(false);
+  const editingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const parseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (editingTimerRef.current) clearTimeout(editingTimerRef.current);
+    if (parseTimerRef.current) clearTimeout(parseTimerRef.current);
+  }, []);
 
   // Get parameter display name from translations
-  const getParamDisplayName = (paramKey: string): string => {
-    try {
-      return tParams(paramKey);
-    } catch {
-      return paramKey; // Fallback to parameter key if translation not found
-    }
-  };
+  const getParamDisplayName = (paramKey: string): string =>
+    tParams.has(paramKey) ? tParams(paramKey) : paramKey;
+
+  const getParamDescription = (paramKey: string, param: GameIniParam): string | undefined =>
+    tParamDescriptions.has(paramKey) ? tParamDescriptions(paramKey) : param.description;
 
   const parseTextToVisual = useCallback((text: string) => {
     try {
@@ -203,7 +223,7 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
     }
   }, [t]);
 
-  // Initialize with default values
+  // Initialize with default values, or hydrate from the incoming value
   useEffect(() => {
     if (!value) {
       const defaultConfig: Record<string, string | number | boolean> = {};
@@ -215,10 +235,14 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
         });
       });
       setVisualConfig(defaultConfig);
-    } else {
-      setTextContent(value);
-      parseTextToVisual(value);
+      return;
     }
+
+    // Ignore the echo of the content this editor just emitted.
+    if (value === lastEmittedRef.current) return;
+
+    setTextContent(value);
+    parseTextToVisual(value);
   }, [value, parseTextToVisual]);
 
   const syncVisualToText = useCallback(() => {
@@ -321,35 +345,45 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
       });
 
       setTextContent(iniContent);
-      onChange?.(iniContent);
+      if (hasUserEditedRef.current) {
+        lastEmittedRef.current = iniContent;
+        onChangeRef.current?.(iniContent);
+      }
     } catch (error) {
       console.error(t('syncVisualToTextError') + ':', error);
     }
-  }, [visualConfig, onChange, t]);
+  }, [visualConfig, t]);
 
   // Sync visual to text when visual config changes
   useEffect(() => {
     if (editMode === 'visual' && !isUserEditing) {
-      const now = Date.now();
-      if (now - lastUserEditTime > 500) {
-        syncVisualToText();
-      }
+      syncVisualToText();
     }
-  }, [visualConfig, editMode, syncVisualToText, isUserEditing, lastUserEditTime, t]);
+  }, [editMode, isUserEditing, syncVisualToText]);
 
   const handleVisualChange = (key: string, value: string | number | boolean) => {
+    hasUserEditedRef.current = true;
     setIsUserEditing(true);
-    setLastUserEditTime(Date.now());
     setVisualConfig(prev => ({ ...prev, [key]: value }));
-    setTimeout(() => setIsUserEditing(false), 1000);
+
+    // Debounce the visual -> text sync until the user stops typing.
+    if (editingTimerRef.current) clearTimeout(editingTimerRef.current);
+    editingTimerRef.current = setTimeout(() => {
+      editingTimerRef.current = null;
+      setIsUserEditing(false);
+    }, 1000);
   };
 
   const handleTextChange = (newText: string) => {
+    hasUserEditedRef.current = true;
     setTextContent(newText);
-    onChange?.(newText);
+    lastEmittedRef.current = newText;
+    onChangeRef.current?.(newText);
 
     // Parse text to visual with debounce
-    setTimeout(() => {
+    if (parseTimerRef.current) clearTimeout(parseTimerRef.current);
+    parseTimerRef.current = setTimeout(() => {
+      parseTimerRef.current = null;
       parseTextToVisual(newText);
     }, 500);
   };
@@ -365,10 +399,8 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
 
 
 
-  const getCategoryDisplayName = (categoryKey: GameIniCategoryKey): string => {
-    const translated = tCategories(categoryKey as string);
-    return translated !== categoryKey ? translated : categoryKey;
-  };
+  const getCategoryDisplayName = (categoryKey: GameIniCategoryKey): string =>
+    tCategories.has(categoryKey) ? tCategories(categoryKey) : categoryKey;
 
   const renderParamControl = (paramKey: string, param: GameIniParam) => {
     const currentValue = visualConfig[paramKey] ?? param.default;
@@ -387,17 +419,32 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
           </div>
         );
 
-      case 'number':
+      case 'number': {
+        const commitNumberDraft = (raw: string) => {
+          const parsed = Number.parseFloat(raw);
+          if (raw.trim() === '' || !Number.isFinite(parsed)) return;
+          handleVisualChange(paramKey, parsed);
+        };
+
         return (
           <div className="space-y-1">
             <Input
               type="number"
-              value={String(currentValue)}
+              value={numberDrafts[paramKey] ?? String(currentValue)}
               onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (!isNaN(value)) {
-                  handleVisualChange(paramKey, value);
-                }
+                const raw = e.target.value;
+                setNumberDrafts(prev => ({ ...prev, [paramKey]: raw }));
+                commitNumberDraft(raw);
+              }}
+              onBlur={(e) => {
+                const raw = e.target.value;
+                // Drop the draft so the field falls back to the committed value.
+                setNumberDrafts(prev => {
+                  const next = { ...prev };
+                  delete next[paramKey];
+                  return next;
+                });
+                commitNumberDraft(raw);
               }}
               min={param.min}
               max={param.max}
@@ -411,6 +458,7 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
             )}
           </div>
         );
+      }
 
       case 'text':
         return (
@@ -486,6 +534,7 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
                     <div className="grid gap-4">
                       {Object.keys(params).map((paramKey) => {
                         const param = params[paramKey];
+                        const paramDescription = getParamDescription(paramKey, param);
                         return (
                           <div key={paramKey} className="space-y-2">
                             <Label className="text-sm font-medium">
@@ -498,7 +547,9 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
                                   <TooltipContent>
                                     <div className="max-w-xs">
                                       <p className="font-medium">{paramKey}</p>
-                                      <p className="text-sm mt-1">{getParamDisplayName(paramKey)}</p>
+                                      <p className="text-sm mt-1">
+                                        {paramDescription ?? getParamDisplayName(paramKey)}
+                                      </p>
                                       <p className="text-xs mt-1 text-muted-foreground">
                                         {t('defaultValue')}: {String(param.default)}
                                       </p>

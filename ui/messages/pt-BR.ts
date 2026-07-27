@@ -7,6 +7,7 @@ export default {
     delete: 'Excluir',
     edit: 'Editar',
     add: 'Adicionar',
+    create: 'Criar',
     close: 'Fechar',
     loading: 'Carregando...',
     error: 'Erro',
@@ -53,6 +54,7 @@ export default {
     plugins: 'Plugins',
     players: 'Gerenciamento de Jogadores',
     logs: 'Monitoramento de Logs',
+    auditLogs: 'Logs de Auditoria',
     settings: 'Configurações',
     logout: 'Sair',
     welcome: 'Bem-vindo',
@@ -179,6 +181,10 @@ export default {
       imageMissingManualDownload: 'Images Missing, Please Download Manually',
       downloading: 'Downloading',
       ready: 'Ready',
+      cancel: 'Cancelar',
+      download: 'Baixar',
+      update: 'Atualizar',
+      updateAvailable: 'Atualização Disponível',
       notReady: 'Not Ready',
       waitingDownload: 'Waiting Download',
       layerProgress: 'Layer Download Progress',
@@ -230,6 +236,8 @@ export default {
     noLogs: 'No logs yet',
     getServerListFailed: 'Failed to get server list, please try again later',
     loadServerInfoFailed: 'Failed to load server info, please try again later',
+    fetchLogsFailed: 'Falha ao obter os logs, tente novamente mais tarde',
+    serverUpdateError: 'Falha ao atualizar o servidor, tente novamente mais tarde',
     operationFailed: 'Operation failed, please try again later',
     deleteFailed: 'Delete failed, please try again later',
     startServerFailed: 'Failed to start server, please try again later',
@@ -244,6 +252,8 @@ export default {
     bulkRestart: 'Reiniciar em Lote',
     clearSelection: 'Limpar Seleção',
     page: 'Página',
+    next: 'Próximo',
+    previous: 'Anterior',
     // Backup e Restauração
     backup: 'Backup',
     restore: 'Restaurar',
@@ -281,6 +291,7 @@ export default {
       rconConnectionInfo: 'Informações de Conexão RCON',
       serverIdentifier: 'Identificador do Servidor',
       rconPort: 'Porta RCON',
+      serverPort: 'Porta do Servidor',
       adminPassword: 'Senha de Admin',
       editServer: 'Editar Servidor',
       deleteServer: 'Excluir Servidor',
@@ -308,6 +319,7 @@ export default {
     // Server edit related
     edit: {
       title: 'Edição do Servidor',
+      loadServerInfoFailed: 'Falha ao carregar as informações do servidor, tente novamente mais tarde',
       createTitle: 'Adicionar Servidor',
       editTitle: 'Editar Servidor',
       createServerDesc: 'Configure e crie uma nova instância de servidor ARK',
@@ -393,6 +405,10 @@ export default {
       format: 'Format',
       content: 'Content',
       placeholder: 'Enter configuration content...',
+      placeholders: {
+        gameIni: 'Insira o conteúdo da configuração do Game.ini...',
+        gameUserSettings: 'Insira o conteúdo da configuração do GameUserSettings.ini...',
+      },
       description: 'This file contains basic server settings such as port, password, max players, etc.',
       visualEditModeDesc: 'Visual Edit Mode',
       visualEditModeTip: 'Modify parameters through form controls. Hover over the icon next to parameter names to view detailed descriptions.',
@@ -853,6 +869,7 @@ export default {
       DisableCryopodEnemyCheck: 'Disable Cryopod Enemy Check',
       DisableCryopodFridgeRequirement: 'Disable Cryopod Fridge Requirement',
       AllowCryoFridgeOnSaddle: 'Allow Cryo Fridge On Saddle',
+      MaxTrainCars: 'Máximo de Vagões de Trem',
       MaxHexagonsPerCharacter: 'Max Hexagons Per Character',
       AllowTekSuitPowersInGenesis: 'Allow Tek Suit Powers In Genesis',
       CustomDynamicConfigUrl: 'Custom Dynamic Config URL'
@@ -1018,6 +1035,7 @@ BabyImprintAmountMultiplier=1.0`
     fetchPlayers: 'Buscar Jogadores',
     noOnlinePlayers: 'Nenhum jogador online encontrado',
     onlineNow: 'Online Agora',
+    onlinePlayers: 'Jogadores Online',
     maxPlayers: 'Máx. Jogadores',
     server: 'Servidor',
     session: 'Sessão',
@@ -1029,5 +1047,25 @@ BabyImprintAmountMultiplier=1.0`
     fetched: 'Jogadores buscados com sucesso',
     fetchFailed: 'Falha ao buscar jogadores',
     joinedAt: 'Entrou Em'
+  },
+
+  // Logs de auditoria
+  auditLogs: {
+    title: 'Logs de Auditoria',
+    page: 'Página',
+    noLogs: 'Nenhum registro de auditoria encontrado',
+    fetchFailed: 'Falha ao carregar os logs de auditoria',
+    filterUserID: 'ID do Usuário',
+    filterUserIDPlaceholder: 'Filtrar por ID do usuário',
+    filterAction: 'Ação',
+    filterActionPlaceholder: 'Filtrar por ação',
+    filterStartDate: 'Data Inicial',
+    filterEndDate: 'Data Final',
+    userID: 'ID do Usuário',
+    action: 'Ação',
+    resource: 'Recurso',
+    detail: 'Detalhe',
+    ip: 'Endereço IP',
+    time: 'Horário'
   }
 }

@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useServers, serversActions } from '@/stores/servers';
 import { Button } from '@/components/ui/button';
-import Cookies from 'js-cookie';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
+import api from '@/lib/axios';
 import {
   Folder, File, Upload, Download, Trash2, Pencil,
   ChevronRight, Home, Loader2, RefreshCw, FolderPlus, Edit3, X, Save,
@@ -21,10 +21,39 @@ interface FileEntry {
   mod_time: string;
 }
 
-function authHeaders(): Record<string, string> {
-  const token = Cookies.get('auth-token');
-  if (!token) return {};
-  return { 'Authorization': `Bearer ${token}` };
+/**
+ * Browsers may still be streaming the blob when the click handler returns, so
+ * the object URL has to survive past this tick - revoking it synchronously
+ * cancels the download.
+ */
+const OBJECT_URL_REVOKE_DELAY_MS = 60_000;
+
+/** Join a directory and an entry name without producing a double slash. */
+function joinPath(dir: string, name: string): string {
+  return dir === '/' ? `/${name}` : `${dir}/${name}`;
+}
+
+/** Resolve the message the API returned, falling back to a local default. */
+function errorMessage(e: unknown, fallback: string): string {
+  if (isAxiosError<{ error?: string }>(e)) {
+    // The route handlers answer with `{ error: ' ' }` when the backend says
+    // nothing useful, so a blank message must fall through to the default.
+    const apiError = typeof e.response?.data?.error === 'string' ? e.response.data.error.trim() : '';
+    return apiError || e.message || fallback;
+  }
+  return e instanceof Error ? e.message : fallback;
+}
+
+/** Save a blob under `fileName` via a temporary object URL. */
+function saveBlob(blob: Blob, fileName: string): void {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), OBJECT_URL_REVOKE_DELAY_MS);
 }
 
 function formatSize(bytes: number): string {
@@ -73,12 +102,10 @@ export default function PluginsPage() {
     setError('');
     try {
       const params = new URLSearchParams({ server_id: String(serverId), path });
-      const res = await fetch(`/api/plugins?${params}`, { headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'load failed');
-      setFiles(data.files || []);
+      const res = await api.get<{ files?: FileEntry[] }>(`/api/plugins?${params}`);
+      setFiles(res.data.files || []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e, 'load failed'));
     } finally {
       setLoading(false);
     }
@@ -111,16 +138,13 @@ export default function PluginsPage() {
     try {
       const form = new FormData();
       for (let i = 0; i < fileList.length; i++) form.append('files', fileList[i]);
-      const token = Cookies.get('auth-token');
-      await axios.post(
-        `/api/plugins?server_id=${selectedServerId}&path=${currentPath}&action=upload`,
-        form,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const params = new URLSearchParams({
+        server_id: String(selectedServerId), path: currentPath, action: 'upload',
+      });
+      await api.post(`/api/plugins?${params}`, form);
       loadFiles(selectedServerId, currentPath);
     } catch (e: unknown) {
-      const ae = e as { response?: { data?: { error?: string } } };
-      setError(ae?.response?.data?.error || 'upload failed');
+      setError(errorMessage(e, 'upload failed'));
     } finally {
       setUploading(false);
     }
@@ -136,14 +160,30 @@ export default function PluginsPage() {
     if (!selectedServerId) return;
     if (!confirm(t('confirmDelete', { name: entry.name }))) return;
     try {
-      const targetPath = currentPath === '/' ? `/${entry.name}` : `${currentPath}/${entry.name}`;
-      const params = new URLSearchParams({ server_id: String(selectedServerId), path: targetPath });
-      const res = await fetch(`/api/plugins?${params}`, { method: 'DELETE', headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'delete failed');
+      const params = new URLSearchParams({
+        server_id: String(selectedServerId), path: joinPath(currentPath, entry.name),
+      });
+      await api.delete(`/api/plugins?${params}`);
       loadFiles(selectedServerId, currentPath);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e, 'delete failed'));
+    }
+  };
+
+  const handleDownload = async (entry: FileEntry) => {
+    if (!selectedServerId) return;
+    setError('');
+    try {
+      // A plain <a href> cannot carry the Authorization header these routes
+      // require, so the "downloaded file" was the Unauthorized JSON body.
+      const params = new URLSearchParams({
+        server_id: String(selectedServerId), path: joinPath(currentPath, entry.name),
+      });
+      const endpoint = entry.is_dir ? '/api/plugins/zip-download' : '/api/plugins/download';
+      const res = await api.get<Blob>(`${endpoint}?${params}`, { responseType: 'blob' });
+      saveBlob(res.data, entry.is_dir ? `${entry.name}.zip` : entry.name);
+    } catch (e: unknown) {
+      setError(errorMessage(e, 'download failed'));
     }
   };
 
@@ -155,19 +195,15 @@ export default function PluginsPage() {
   const handleRenameConfirm = async () => {
     if (!selectedServerId || !renaming || !renameValue) return;
     try {
-      const oldPath = currentPath === '/' ? `/${renaming}` : `${currentPath}/${renaming}`;
-      const newPath = currentPath === '/' ? `/${renameValue}` : `${currentPath}/${renameValue}`;
       const params = new URLSearchParams({
         server_id: String(selectedServerId), action: 'rename',
-        old_path: oldPath, new_path: newPath,
+        old_path: joinPath(currentPath, renaming), new_path: joinPath(currentPath, renameValue),
       });
-      const res = await fetch(`/api/plugins?${params}`, { method: 'POST', body: '{}', headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'rename failed');
+      await api.post(`/api/plugins?${params}`, {});
       setRenaming(null);
       loadFiles(selectedServerId, currentPath);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e, 'rename failed'));
     }
   };
 
@@ -180,21 +216,17 @@ export default function PluginsPage() {
     setEditorError('');
     setEditorContent('');
     try {
-      const targetPath = currentPath === '/' ? `/${entry.name}` : `${currentPath}/${entry.name}`;
-      const token = Cookies.get('auth-token');
-      const res = await axios.get(
-        `/api/plugins/read?server_id=${selectedServerId}&path=${targetPath}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      let content = res.data;
-      if (typeof content !== 'string') content = JSON.stringify(content, null, 2);
+      const params = new URLSearchParams({
+        server_id: String(selectedServerId), path: joinPath(currentPath, entry.name),
+      });
+      const res = await api.get<unknown>(`/api/plugins/read?${params}`);
+      let content = typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2);
       if (/\.json$/i.test(entry.name)) {
         try { content = JSON.stringify(JSON.parse(content), null, 2); } catch {}
       }
       setEditorContent(content);
     } catch (e: unknown) {
-      const ae = e as { response?: { data?: { error?: string } } };
-      setEditorError(ae?.response?.data?.error || 'read failed');
+      setEditorError(errorMessage(e, 'read failed'));
     } finally {
       setEditorLoading(false);
     }
@@ -205,8 +237,9 @@ export default function PluginsPage() {
     setEditorLoading(true);
     setEditorError('');
     try {
-      const targetPath = currentPath === '/' ? `/${editingFile.name}` : `${currentPath}/${editingFile.name}`;
-      const token = Cookies.get('auth-token');
+      const params = new URLSearchParams({
+        server_id: String(selectedServerId), path: joinPath(currentPath, editingFile.name),
+      });
 
       let content = editorContent;
       if (/\.json$/i.test(editingFile.name)) {
@@ -214,16 +247,11 @@ export default function PluginsPage() {
         content = JSON.stringify(parsed, null, 2);
       }
 
-      await axios.post(
-        `/api/plugins/write?server_id=${selectedServerId}&path=${targetPath}`,
-        { content },
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-      );
+      await api.post(`/api/plugins/write?${params}`, { content });
       setEditingFile(null);
       loadFiles(selectedServerId, currentPath);
     } catch (e: unknown) {
-      const ae = e as { response?: { data?: { error?: string } } };
-      setEditorError(ae?.response?.data?.error || (e instanceof Error ? e.message : 'save failed'));
+      setEditorError(errorMessage(e, 'save failed'));
     } finally {
       setEditorLoading(false);
     }
@@ -232,33 +260,28 @@ export default function PluginsPage() {
   const handleUnzip = async (entry: FileEntry) => {
     if (!selectedServerId) return;
     try {
-      const targetPath = currentPath === '/' ? `/${entry.name}` : `${currentPath}/${entry.name}`;
-      const token = Cookies.get('auth-token');
-      await axios.post(
-        `/api/plugins/unzip?server_id=${selectedServerId}&path=${targetPath}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const params = new URLSearchParams({
+        server_id: String(selectedServerId), path: joinPath(currentPath, entry.name),
+      });
+      await api.post(`/api/plugins/unzip?${params}`, {});
       loadFiles(selectedServerId, currentPath);
     } catch (e: unknown) {
-      const ae = e as { response?: { data?: { error?: string } } };
-      setError(ae?.response?.data?.error || 'unzip failed');
+      setError(errorMessage(e, 'unzip failed'));
     }
   };
 
   const handleCreateFolder = async () => {
     if (!selectedServerId || !folderName) return;
     try {
-      const targetPath = currentPath === '/' ? `/${folderName}` : `${currentPath}/${folderName}`;
-      const params = new URLSearchParams({ server_id: String(selectedServerId), action: 'mkdir', path: targetPath });
-      const res = await fetch(`/api/plugins?${params}`, { method: 'POST', body: '{}', headers: authHeaders() });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'mkdir failed');
+      const params = new URLSearchParams({
+        server_id: String(selectedServerId), action: 'mkdir', path: joinPath(currentPath, folderName),
+      });
+      await api.post(`/api/plugins?${params}`, {});
       setCreatingFolder(false);
       setFolderName('');
       loadFiles(selectedServerId, currentPath);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e, 'mkdir failed'));
     }
   };
 
@@ -399,13 +422,14 @@ export default function PluginsPage() {
                         <span className="text-xs text-gray-400 w-40 text-right hidden md:block">{formatTime(entry.mod_time)}</span>
                         <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100">
                           {!entry.is_dir && (
-                            <a
-                              href={`/api/plugins/download?server_id=${selectedServerId}&path=${currentPath === '/' ? '/' + entry.name : currentPath + '/' + entry.name}`}
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(entry)}
                               className="p-1 hover:bg-gray-200 rounded"
                               title={tCommon('download')}
                             >
                               <Download className="h-4 w-4 text-muted-foreground/60" />
-                            </a>
+                            </button>
                           )}
                           {!entry.is_dir && /\.zip$/i.test(entry.name) && (
                             <button className="p-1 hover:bg-gray-200 rounded" onClick={() => handleUnzip(entry)} title={t('extract')}>
@@ -418,13 +442,14 @@ export default function PluginsPage() {
                             </button>
                           )}
                           {entry.is_dir && (
-                            <a
-                              href={`/api/plugins/zip-download?server_id=${selectedServerId}&path=${currentPath === '/' ? '/' + entry.name : currentPath + '/' + entry.name}`}
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(entry)}
                               className="p-1 hover:bg-gray-200 rounded"
                               title={t('downloadZip')}
                             >
                               <FileDown className="h-4 w-4 text-green-400" />
-                            </a>
+                            </button>
                           )}
                           <button className="p-1 hover:bg-gray-200 rounded" onClick={() => handleRenameStart(entry)} title={tCommon('rename')}>
                             <Pencil className="h-4 w-4 text-muted-foreground/60" />

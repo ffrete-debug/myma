@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import axios from 'axios';
+import Cookies from 'js-cookie';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,13 +14,31 @@ import { Server } from '@/stores/servers';
 import { RCONConsole } from '@/components/servers/RCONConsole';
 import { useWebSocket } from '@/hooks/use-websocket';
 
+interface Backup {
+  id: number;
+  server_id: number;
+  filename: string;
+  file_size: number;
+  status: string;
+  error: string;
+  created_at: string;
+}
+
+const getAuthHeaders = () => {
+  const token = Cookies.get('auth-token');
+  if (!token) throw new Error('Authentication token not found');
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+};
+
 export default function ServerDetailPage() {
   const t = useTranslations('servers');
   const tCommon = useTranslations('common');
   const params = useParams();
   const router = useRouter();
   const serverId = params.id as string;
-  const backupApi = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
 
   const [server, setServer] = useState<Server | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,16 +47,6 @@ export default function ServerDetailPage() {
   const [backups, setBackups] = useState<Backup[]>([]);
   const [backupCreating, setBackupCreating] = useState(false);
   const [backupLoading, setBackupLoading] = useState(false);
-
-  interface Backup {
-    id: number;
-    server_id: number;
-    filename: string;
-    file_size: number;
-    status: string;
-    error: string;
-    created_at: string;
-  }
 
   const fetchServer = useCallback(async () => {
     try {
@@ -51,16 +61,19 @@ export default function ServerDetailPage() {
   }, [serverId, t]);
 
   const fetchBackups = useCallback(async () => {
+    setBackupLoading(true);
     try {
-      const res = await fetch(`${backupApi}/backups`, { credentials: 'same-origin' });
-      if (res.ok) {
-        const data = await res.json();
-        setBackups(data.data || []);
-      }
+      const res = await axios.get<{ data?: Backup[] }>('/api/backups', {
+        headers: getAuthHeaders(),
+        params: { server_id: serverId },
+      });
+      setBackups(res.data.data || []);
     } catch {
-      // silently ignore
+      setError(t('backupFailed'));
+    } finally {
+      setBackupLoading(false);
     }
-  }, []);
+  }, [serverId, t]);
 
   useEffect(() => {
     fetchServer();
@@ -88,16 +101,14 @@ export default function ServerDetailPage() {
 
   const handleCreateBackup = async () => {
     setBackupCreating(true);
+    setError('');
     try {
-      const res = await fetch(`${backupApi}/backups`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ server_id: serverId }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-      setBackups((prev) => [data.data, ...prev]);
+      const res = await axios.post<{ data: Backup }>(
+        '/api/backups',
+        { server_id: serverId },
+        { headers: getAuthHeaders() }
+      );
+      setBackups((prev) => [res.data.data, ...prev]);
     } catch {
       setError(t('backupFailed'));
     } finally {
@@ -107,9 +118,9 @@ export default function ServerDetailPage() {
 
   const handleDeleteBackup = async (backupId: number) => {
     if (!confirm(t('backupDeleteConfirm'))) return;
+    setError('');
     try {
-      const res = await fetch(`${backupApi}/backups/${backupId}`, { method: 'DELETE', credentials: 'same-origin' });
-      if (!res.ok) throw new Error(await res.text());
+      await axios.delete(`/api/backups/${backupId}`, { headers: getAuthHeaders() });
       setBackups((prev) => prev.filter((b) => b.id !== backupId));
     } catch {
       setError(t('deleteFailed'));
@@ -118,23 +129,40 @@ export default function ServerDetailPage() {
 
   const handleRestoreBackup = async (backupId: number) => {
     if (!confirm(t('backupRestoreConfirm'))) return;
+    setError('');
     try {
-      const res = await fetch(`${backupApi}/backups/restore`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ backup_id: backupId, server_id: serverId }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      setError('');
+      await axios.post(
+        '/api/backups/restore',
+        { backup_id: backupId, server_id: serverId },
+        { headers: getAuthHeaders() }
+      );
       setBackups((prev) => prev.filter((b) => b.id !== backupId));
     } catch {
       setError(t('backupFailed'));
     }
   };
 
-  const handleDownloadBackup = (filename: string) => {
-    window.open(`${backupApi}/backups/download/${encodeURIComponent(filename)}`, '_blank');
+  const handleDownloadBackup = async (filename: string) => {
+    setError('');
+    try {
+      // window.open() cannot carry the Authorization header, so fetch the
+      // archive through the authenticated proxy and save it from a blob.
+      const res = await axios.get<Blob>(
+        `/api/backups/download/${encodeURIComponent(filename)}`,
+        { headers: getAuthHeaders(), responseType: 'blob' }
+      );
+      const objectUrl = URL.createObjectURL(res.data);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Revoking synchronously aborts the download in Firefox/Safari.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch {
+      setError(t('operationFailed'));
+    }
   };
 
   const getStatusVariant = (s: Server['status']): 'default' | 'destructive' | 'secondary' | 'outline' => {
@@ -216,6 +244,8 @@ export default function ServerDetailPage() {
           </Button>
         </div>
       </div>
+
+      {error && <div className="text-sm text-red-400">{error}</div>}
 
       <Card>
         <CardHeader className="py-3">
