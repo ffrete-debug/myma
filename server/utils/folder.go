@@ -47,7 +47,9 @@ func CreateServerFolder(serverID uint) (string, error) {
 // Returns: whether the folder exists
 func FolderExists(folderPath string) bool {
 	info, err := os.Stat(folderPath)
-	if os.IsNotExist(err) {
+	if err != nil {
+		// Any stat error (not exist, permission denied, not a directory,
+		// symlink loop, ...) leaves info nil, so never dereference it
 		return false
 	}
 	return info.IsDir()

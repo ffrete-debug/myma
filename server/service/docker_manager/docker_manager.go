@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/container"
@@ -29,18 +30,32 @@ type DockerManager struct {
 
 // Off
 var (
-	instance *DockerManager
-	once     sync.Once
+	instanceMu   sync.Mutex
+	instance     *DockerManager
+	instanceErr  error
+	instanceOnce sync.Once
+)
+
+// dm.ctx Yes ，
+// ，Docker
+const (
+	// dockerOpTimeout Docker
+	dockerOpTimeout = 2 * time.Minute
+	// dockerPullTimeout ，
+	dockerPullTimeout = 2 * time.Hour
 )
 
 // GetDockerManager Docker Manager
 func GetDockerManager() (*DockerManager, error) {
-	var err error
-	once.Do(func() {
+	instanceOnce.Do(func() {
 		// Create
 		cli, clientErr := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+
+		instanceMu.Lock()
+		defer instanceMu.Unlock()
 		if clientErr != nil {
-			err = fmt.Errorf("CreateDocker : %v", clientErr)
+			// ， once ，
+			instanceErr = fmt.Errorf("CreateDocker : %v", clientErr)
 			return
 		}
 
@@ -50,21 +65,41 @@ func GetDockerManager() (*DockerManager, error) {
 		}
 	})
 
-	if err != nil {
-		return nil, err
+	instanceMu.Lock()
+	defer instanceMu.Unlock()
+	if instanceErr != nil {
+		return nil, instanceErr
+	}
+	if instance == nil {
+		return nil, fmt.Errorf("Docker Manager Off")
 	}
 
 	return instance, nil
 }
 
 // CloseDockerManager OffDocker Manager（Logout）
+// ， GetDockerManager  (nil, nil)
 func CloseDockerManager() error {
-	if instance != nil && instance.client != nil {
-		err := instance.client.Close()
-		instance = nil
-		return err
+	instanceMu.Lock()
+	defer instanceMu.Unlock()
+
+	if instance == nil {
+		return nil
 	}
-	return nil
+
+	cli := instance.client
+	instance = nil
+	instanceErr = fmt.Errorf("Docker Manager Off")
+	if cli == nil {
+		return nil
+	}
+	return cli.Close()
+}
+
+// opCtx  dm.ctx  timeout ，
+// Docker 。 cancel
+func (dm *DockerManager) opCtx(timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(dm.ctx, timeout)
 }
 
 // Check DockerStatus DockerStatus
@@ -466,5 +501,35 @@ func (dm *DockerManager) StreamContainerLogs(containerName string, follow bool, 
 	if tail != "" {
 		options.Tail = tail
 	}
-	return dm.client.ContainerLogs(dm.ctx, containerName, options)
+
+	// A follow stream is legitimately long-lived, so it only gets a cancellable
+	// context; a non-follow read terminates on its own and is bounded instead.
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if follow {
+		ctx, cancel = context.WithCancel(dm.ctx)
+	} else {
+		ctx, cancel = dm.opCtx(dockerOpTimeout)
+	}
+
+	reader, err := dm.client.ContainerLogs(ctx, containerName, options)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	// Closing the reader releases the context, so a hung daemon cannot keep the
+	// request alive after the caller has gone away.
+	return &cancelReadCloser{ReadCloser: reader, cancel: cancel}, nil
+}
+
+// cancelReadCloser cancels the context backing a stream when it is closed.
+type cancelReadCloser struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (c *cancelReadCloser) Close() error {
+	c.cancel()
+	return c.ReadCloser.Close()
 }
