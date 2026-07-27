@@ -3,6 +3,8 @@ package auth
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -13,10 +15,35 @@ import (
 	"ark-server-commander/utils"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// Password policy for accounts created through this package. bcrypt silently
+// truncates its input at 72 bytes, so longer passwords are rejected instead of
+// being quietly weakened.
+const (
+	minPasswordLength = 8
+	maxPasswordLength = 72
+)
+
+// errAlreadyInitialized is returned from the init transaction when a user
+// already exists, so the handler can answer 400 instead of 500
+var errAlreadyInitialized = errors.New("already initialized")
+
+// validatePassword enforces the account password policy
+func validatePassword(password string) error {
+	if len(password) < minPasswordLength {
+		return fmt.Errorf("Password must be at least %d characters", minPasswordLength)
+	}
+	if len(password) > maxPasswordLength {
+		return fmt.Errorf("Password must be at most %d bytes", maxPasswordLength)
+	}
+	return nil
 }
 
 // Check Init YesNoInitializeUser
@@ -28,8 +55,14 @@ type RefreshTokenRequest struct {
 // @Success 200 {object} map[string]bool "Initialization status"
 // @Router /auth/check-init [get]
 func CheckInit(c *gin.Context) {
+	// Unscoped: soft-deleted users still count as initialized, so this stays
+	// consistent with the check InitUser performs
 	var count int64
-	database.DB.Model(&models.User{}).Count(&count)
+	if err := database.DB.Unscoped().Model(&models.User{}).Count(&count).Error; err != nil {
+		utils.Error("count users failed", zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Server error"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"initialized": count > 0,
@@ -54,15 +87,13 @@ func InitUser(c *gin.Context) {
 		return
 	}
 
-	// YesNoUser
-	var count int64
-	database.DB.Model(&models.User{}).Count(&count)
-	if count > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": " Initialize"})
+	if err := validatePassword(req.Password); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Password
+	// Password, hashed outside the transaction so bcrypt does not hold the
+	// write lock for the duration of the hash
 	hashedPassword, err := utils.HashPassword(req.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Password "})
@@ -75,7 +106,27 @@ func InitUser(c *gin.Context) {
 		Password: hashedPassword,
 	}
 
-	if err := database.DB.Create(&user).Error; err != nil {
+	// The "no user exists yet" check and the insert must be atomic, otherwise
+	// two concurrent requests can both observe an empty table and both create
+	// an admin. The unique index on username makes the loser fail cleanly.
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		// YesNoUser
+		var count int64
+		if countErr := tx.Unscoped().Model(&models.User{}).Count(&count).Error; countErr != nil {
+			return countErr
+		}
+		if count > 0 {
+			return errAlreadyInitialized
+		}
+
+		return tx.Create(&user).Error
+	})
+	if err != nil {
+		if errors.Is(err, errAlreadyInitialized) || strings.Contains(strings.ToUpper(err.Error()), "UNIQUE") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": " Initialize"})
+			return
+		}
+		utils.Error("init user failed", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "UserCreate "})
 		return
 	}
@@ -176,8 +227,9 @@ func RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// refresh token
-	claims, err := utils.ParseToken(req.RefreshToken)
+	// ParseRefreshToken, not ParseToken: only a refresh token may be exchanged
+	// here, otherwise an access token can be rolled over into a fresh 30-day pair
+	claims, err := utils.ParseRefreshToken(req.RefreshToken)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "None "})
 		return

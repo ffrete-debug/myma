@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"bufio"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -10,8 +11,10 @@ import (
 	"ark-server-commander/models"
 	"ark-server-commander/service/docker_manager"
 	"ark-server-commander/utils"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 var logsUpgrader = websocket.Upgrader{
@@ -21,8 +24,13 @@ var logsUpgrader = websocket.Upgrader{
 }
 
 const (
-	logsReadTimeout  = 60 * time.Second
-	logsWriteTimeout = 10 * time.Second
+	logsReadTimeout    = 60 * time.Second
+	logsWriteTimeout   = 10 * time.Second
+	logsPingPeriod     = (logsReadTimeout * 9) / 10
+	logsMaxMessageSize = 512
+	// ARK writes very long single lines (mod lists, stack traces). The Scanner
+	// default of 64 KB would silently end the stream on the first one.
+	logsMaxLineSize = 1 << 20
 )
 
 // HandleLogsWebSocket upgrades the connection to a WebSocket and streams
@@ -65,16 +73,80 @@ func HandleLogsWebSocket(c *gin.Context) {
 	}
 	defer reader.Close()
 
-	_ = conn.SetWriteDeadline(time.Now().Add(logsWriteTimeout))
+	// Non-TTY containers multiplex stdout/stderr with an 8-byte frame header per
+	// message; without demuxing, every line reaches the browser prefixed with
+	// binary garbage. GetContainerLogs does the same via stdcopy.StdCopy — here
+	// it feeds a pipe so the stream keeps flowing line by line.
+	pr, pw := io.Pipe()
+	defer pr.Close()
+	go func() {
+		_, err := stdcopy.StdCopy(pw, pw, reader)
+		_ = pw.CloseWithError(err)
+	}()
 
-	scanner := bufio.NewScanner(reader)
-	scanner.Split(bufio.ScanLines)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(line)); err != nil {
-			break
+	// The client never sends anything, but an active reader is still required:
+	// it processes pongs and notices a disconnect straight away, instead of
+	// leaving this handler and the Docker API connection blocked forever on a
+	// quiet container.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn.SetReadLimit(logsMaxMessageSize)
+		_ = conn.SetReadDeadline(time.Now().Add(logsReadTimeout))
+		conn.SetPongHandler(func(string) error {
+			return conn.SetReadDeadline(time.Now().Add(logsReadTimeout))
+		})
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
 		}
-		_ = conn.SetWriteDeadline(time.Now().Add(logsWriteTimeout))
+	}()
+
+	lines := make(chan []byte, 256)
+	go func() {
+		defer close(lines)
+		scanner := bufio.NewScanner(pr)
+		scanner.Buffer(make([]byte, 0, 64*1024), logsMaxLineSize)
+		scanner.Split(bufio.ScanLines)
+		for scanner.Scan() {
+			// scanner.Bytes() is only valid until the next Scan, so hand the
+			// writer its own copy.
+			line := make([]byte, len(scanner.Bytes()))
+			copy(line, scanner.Bytes())
+			select {
+			case lines <- line:
+			case <-done:
+				return
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			utils.Warn("log stream ended with error", zap.String("container", containerName), zap.Error(err))
+		}
+	}()
+
+	// Only this goroutine writes to the connection. Pings keep the peer's read
+	// deadline refreshed while a container is silent.
+	ticker := time.NewTicker(logsPingPeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case line, ok := <-lines:
+			if !ok {
+				return
+			}
+			_ = conn.SetWriteDeadline(time.Now().Add(logsWriteTimeout))
+			if err := conn.WriteMessage(websocket.TextMessage, line); err != nil {
+				return
+			}
+		case <-ticker.C:
+			_ = conn.SetWriteDeadline(time.Now().Add(logsWriteTimeout))
+			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		case <-done:
+			return
+		}
 	}
 }

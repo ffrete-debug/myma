@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -15,6 +16,16 @@ import (
 	"ark-server-commander/websocket"
 
 	"go.uber.org/zap"
+)
+
+const (
+	// Pagination bounds, same convention as controllers/audit.
+	defaultPageLimit = 20
+	maxPageLimit     = 100
+
+	// statusRefreshBudget bounds the Docker daemon work done while building a
+	// server list; past the budget the stored status is used instead.
+	statusRefreshBudget = 5 * time.Second
 )
 
 // ServerService Server Management
@@ -76,14 +87,15 @@ func (s *ServerService) GetServers(userID uint, page, limit int) ([]models.Serve
 	var servers []models.Server
 	var total int64
 
-	offset := (page - 1) * limit
+	// Clamp before computing the offset: limit is part of the offset expression, so
+	// clamping afterwards leaves every page pointing at offset 0.
 	if page < 1 {
 		page = 1
-		offset = 0
 	}
-	if limit < 1 {
-		limit = 20
+	if limit < 1 || limit > maxPageLimit {
+		limit = defaultPageLimit
 	}
+	offset := (page - 1) * limit
 
 	if err := database.DB.Model(&models.Server{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("Count server list : %w", err)
@@ -98,37 +110,42 @@ func (s *ServerService) GetServers(userID uint, page, limit int) ([]models.Serve
 		return nil, 0, fmt.Errorf(" Docker Manager : %w", err)
 	}
 
+	// The Docker calls below are one blocking round-trip per server and docker_manager
+	// owns a context.Background() that cannot be cancelled, so bound the whole refresh
+	// with a deadline. TODO: to honour the caller's request context instead, GetServers
+	// would need a ctx parameter (controllers/servers.GetServers passing c.Request.Context())
+	// and docker_manager would need per-call contexts.
+	ctx, cancel := context.WithTimeout(context.Background(), statusRefreshBudget)
+	defer cancel()
+
+	// Rows whose Docker status drifted from the DB, grouped by the new status so they
+	// can be written back in one statement per status instead of a goroutine per row.
+	drift := make(map[string][]uint)
+
 	var serverResponses []models.ServerResponse
 	for _, server := range servers {
-		// DockerStatus
-		containerName := utils.GetServerContainerName(server.ID)
 		realTimeStatus := server.Status
 
-		// YesNo
-		containerExists, err := dockerManager.ContainerExists(containerName)
-		if err == nil && containerExists {
-			if dockerStatus, err := dockerManager.GetContainerStatus(containerName); err == nil {
+		// GetContainerStatus already reports "not_found", so the extra ContainerExists
+		// probe is redundant: one daemon round-trip per server is enough.
+		if ctx.Err() == nil {
+			containerName := utils.GetServerContainerName(server.ID)
+			dockerStatus, err := dockerManager.GetContainerStatus(containerName)
+			switch {
+			case err != nil:
+				utils.Warn("Get container Status ", zap.Uint("server_id", server.ID), zap.Error(err))
+			case dockerStatus == "not_found":
+				// Container not foundStatusYes，StopStatus
+				if server.Status == "running" {
+					realTimeStatus = "stopped"
+				}
+			default:
 				realTimeStatus = dockerStatus
-
-				// StatusStatus，（）
-				if realTimeStatus != server.Status {
-					go func(s models.Server, status string) {
-						database.DB.Model(&s).Update("status", status)
-						if hub := websocket.GetGlobalHub(); hub != nil {
-							hub.BroadcastToServer(s.ID, map[string]interface{}{"status": status})
-						}
-					}(server, realTimeStatus)
-				}
 			}
-		} else if err == nil && !containerExists && server.Status == "running" {
-			// Container not foundStatusYes，StopStatus
-			realTimeStatus = "stopped"
-			go func(s models.Server) {
-				database.DB.Model(&s).Update("status", "stopped")
-				if hub := websocket.GetGlobalHub(); hub != nil {
-					hub.BroadcastToServer(s.ID, map[string]interface{}{"status": "stopped"})
-				}
-			}(server)
+
+			if realTimeStatus != server.Status {
+				drift[realTimeStatus] = append(drift[realTimeStatus], server.ID)
+			}
 		}
 
 		serverResponses = append(serverResponses, models.ServerResponse{
@@ -150,7 +167,27 @@ func (s *ServerService) GetServers(userID uint, page, limit int) ([]models.Serve
 		})
 	}
 
+	s.persistStatusDrift(userID, drift)
+
 	return serverResponses, total, nil
+}
+
+// persistStatusDrift writes back the statuses observed on Docker, one batched update
+// per status value, then broadcasts them. Failures are logged rather than returned: a
+// stale status row must not fail the list request.
+func (s *ServerService) persistStatusDrift(userID uint, drift map[string][]uint) {
+	for status, ids := range drift {
+		if err := database.DB.Model(&models.Server{}).
+			Where("user_id = ? AND id IN ?", userID, ids).
+			Update("status", status).Error; err != nil {
+			utils.Error("Update Service Status ", zap.String("status", status), zap.Uints("server_ids", ids), zap.Error(err))
+			continue
+		}
+
+		for _, id := range ids {
+			s.broadcastStatus(id, status)
+		}
+	}
 }
 
 // CreateServer Create a new server
@@ -972,11 +1009,20 @@ func (s *ServerService) UpdateImage(imageName string, userID uint) ([]models.Ser
 func (s *ServerService) GetAffectedServers(imageName string, userID uint) ([]models.ServerResponse, error) {
 	// ARKServers
 	if imageName == "tbro98/ase-server:latest" {
-		servers, _, err := s.GetServers(userID, 1, 1000)
-		if err != nil {
-			return nil, err
+		// GetServers caps limit at maxPageLimit, so page through instead of asking
+		// for one oversized page.
+		var affected []models.ServerResponse
+		for page := 1; ; page++ {
+			servers, total, err := s.GetServers(userID, page, maxPageLimit)
+			if err != nil {
+				return nil, err
+			}
+			affected = append(affected, servers...)
+			if len(servers) == 0 || int64(len(affected)) >= total {
+				break
+			}
 		}
-		return servers, nil
+		return affected, nil
 	}
 
 	// ，

@@ -32,7 +32,9 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := utils.ParseToken(tokenString)
+		// ParseAccessToken, not ParseToken: a refresh token is valid for 30 days and
+		// must not be replayable as a bearer token on request-authentication paths
+		claims, err := utils.ParseAccessToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization token"})
 			c.Abort()

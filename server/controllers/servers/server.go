@@ -491,9 +491,19 @@ func RestartServer(c *gin.Context) {
 	})
 }
 
+// Each id drives synchronous Docker work, so cap the batch size to keep a
+// single request inside the request timeout
 type BulkServerActionRequest struct {
-	ServerIDs []string `json:"server_ids" binding:"required,min=1"`
+	ServerIDs []string `json:"server_ids" binding:"required,min=1,max=50"`
 	Action    string   `json:"action" binding:"required,oneof=start stop restart"`
+}
+
+// bulkAuditActions maps an accepted bulk action to its fixed audit log action
+// name, so request input is never interpolated into the audit record
+var bulkAuditActions = map[string]string{
+	"start":   "server.start",
+	"stop":    "server.stop",
+	"restart": "server.restart",
 }
 
 type BulkServerActionResponse struct {
@@ -532,6 +542,12 @@ func BulkServerAction(c *gin.Context) {
 		return
 	}
 
+	auditAction, ok := bulkAuditActions[req.Action]
+	if !ok {
+		utils.BadRequest(c, "Invalid request", "Unsupported action")
+		return
+	}
+
 	var results []BulkResult
 	successCount := 0
 	failedCount := 0
@@ -546,6 +562,8 @@ func BulkServerAction(c *gin.Context) {
 		case "restart":
 			_ = serverService.StopServer(userID, serverID)
 			err = serverService.StartServer(userID, serverID)
+		default:
+			err = fmt.Errorf("Unsupported action")
 		}
 
 		if err != nil {
@@ -561,7 +579,7 @@ func BulkServerAction(c *gin.Context) {
 				ServerID: serverID,
 				Success:  true,
 			})
-			middleware.Log.Log(userID, fmt.Sprintf("server.%s", req.Action), fmt.Sprintf("server:%s", serverID), "", c.ClientIP())
+			middleware.Log.Log(userID, auditAction, fmt.Sprintf("server:%s", serverID), "", c.ClientIP())
 		}
 	}
 

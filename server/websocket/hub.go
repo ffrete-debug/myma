@@ -2,23 +2,39 @@ package websocket
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"sync"
+	"time"
 
+	"ark-server-commander/database"
+	"ark-server-commander/models"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
+// Timings for the update WebSocket pumps. hubPingPeriod must stay below
+// hubPongWait so a responsive peer always refreshes its read deadline in time.
+const (
+	hubWriteTimeout   = 10 * time.Second
+	hubPongWait       = 60 * time.Second
+	hubPingPeriod     = (hubPongWait * 9) / 10
+	hubMaxMessageSize = 512
+)
+
 type Client struct {
-	ID   string
-	Hub  *Hub
-	Send chan []byte
+	ServerID uint
+	Hub      *Hub
+	Conn     *websocket.Conn
+	Send     chan []byte
 }
 
 type Hub struct {
-	clients    map[string]*Client
+	// clients is keyed by server ID and then by connection: several viewers may
+	// watch the same server, so a set of clients is kept per server instead of a
+	// single slot that later connections would evict.
+	clients    map[uint]map[*Client]bool
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan []byte
@@ -27,7 +43,7 @@ type Hub struct {
 
 func NewHub() *Hub {
 	return &Hub{
-		clients:    make(map[string]*Client),
+		clients:    make(map[uint]map[*Client]bool),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		broadcast:  make(chan []byte),
@@ -39,21 +55,31 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.register:
 			h.mu.Lock()
-			h.clients[client.ID] = client
+			if h.clients[client.ServerID] == nil {
+				h.clients[client.ServerID] = make(map[*Client]bool)
+			}
+			h.clients[client.ServerID][client] = true
 			h.mu.Unlock()
 		case client := <-h.unregister:
 			h.mu.Lock()
-			if _, ok := h.clients[client.ID]; ok {
-				delete(h.clients, client.ID)
-				close(client.Send)
+			if peers, ok := h.clients[client.ServerID]; ok {
+				if _, ok := peers[client]; ok {
+					delete(peers, client)
+					close(client.Send)
+					if len(peers) == 0 {
+						delete(h.clients, client.ServerID)
+					}
+				}
 			}
 			h.mu.Unlock()
 		case message := <-h.broadcast:
 			h.mu.RLock()
-			for _, client := range h.clients {
-				select {
-				case client.Send <- message:
-				default:
+			for _, peers := range h.clients {
+				for client := range peers {
+					select {
+					case client.Send <- message:
+					default:
+					}
 				}
 			}
 			h.mu.RUnlock()
@@ -62,7 +88,7 @@ func (h *Hub) Run() {
 }
 
 // BroadcastToServer sends a message only to clients subscribed to the given serverID.
-// Client.ID is the server ID they registered with via HandleWebSocket.
+// Client.ServerID is the server they registered with via HandleWebSocket.
 func (h *Hub) BroadcastToServer(serverID uint, data interface{}) {
 	msg := map[string]interface{}{
 		"type":      "update_status",
@@ -73,12 +99,10 @@ func (h *Hub) BroadcastToServer(serverID uint, data interface{}) {
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	for _, client := range h.clients {
-		if client.ID == fmt.Sprintf("%d", serverID) {
-			select {
-			case client.Send <- bytes:
-			default:
-			}
+	for client := range h.clients[serverID] {
+		select {
+		case client.Send <- bytes:
+		default:
 		}
 	}
 }
@@ -89,10 +113,12 @@ func (h *Hub) BroadcastToAll(data interface{}) {
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	for _, client := range h.clients {
-		select {
-		case client.Send <- bytes:
-		default:
+	for _, peers := range h.clients {
+		for client := range peers {
+			select {
+			case client.Send <- bytes:
+			default:
+			}
 		}
 	}
 }
@@ -117,26 +143,94 @@ var upgrader = websocket.Upgrader{
 }
 
 func (h *Hub) HandleWebSocket(c *gin.Context) {
+	userID := c.GetUint("user_id")
 	serverID := c.Param("id")
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade error:", err)
 		return
 	}
-	defer conn.Close()
+
+	id, err := strconv.ParseUint(serverID, 10, 32)
+	if err != nil {
+		safeWriteText(conn, "error: invalid server id")
+		conn.Close()
+		return
+	}
+
+	// Ownership check: the update stream must only be readable by the user the
+	// server belongs to, same as the logs and RCON handlers.
+	var server models.Server
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&server).Error; err != nil {
+		safeWriteText(conn, "error: server not found")
+		conn.Close()
+		return
+	}
 
 	client := &Client{
-		ID:   serverID,
-		Hub:  h,
-		Send: make(chan []byte, 256),
+		ServerID: server.ID,
+		Hub:      h,
+		Conn:     conn,
+		Send:     make(chan []byte, 256),
 	}
 	h.register <- client
 
+	// The write pump drains Send (without it nothing ever reaches the browser),
+	// the read pump blocks here until the peer goes away.
+	go client.writePump()
+	client.readPump()
+}
+
+// readPump keeps the read side alive so control frames are processed and a
+// disconnect is noticed promptly. The update stream is one-way, so inbound
+// payloads are discarded. On exit the client is unregistered and the connection
+// closed, which also stops the write pump.
+func (c *Client) readPump() {
+	defer func() {
+		c.Hub.unregister <- c
+		c.Conn.Close()
+	}()
+
+	c.Conn.SetReadLimit(hubMaxMessageSize)
+	_ = c.Conn.SetReadDeadline(time.Now().Add(hubPongWait))
+	c.Conn.SetPongHandler(func(string) error {
+		return c.Conn.SetReadDeadline(time.Now().Add(hubPongWait))
+	})
+
 	for {
-		_, _, err := conn.ReadMessage()
-		if err != nil {
-			break
+		if _, _, err := c.Conn.ReadMessage(); err != nil {
+			return
 		}
 	}
-	h.unregister <- client
+}
+
+// writePump is the only goroutine writing to the connection: it forwards queued
+// broadcasts and sends periodic pings so dead peers are detected.
+func (c *Client) writePump() {
+	ticker := time.NewTicker(hubPingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.Conn.Close()
+	}()
+
+	for {
+		select {
+		case message, ok := <-c.Send:
+			_ = c.Conn.SetWriteDeadline(time.Now().Add(hubWriteTimeout))
+			if !ok {
+				// The hub closed the channel — say goodbye and stop.
+				_ = c.Conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
+			}
+			if err := c.Conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				return
+			}
+		case <-ticker.C:
+			_ = c.Conn.SetWriteDeadline(time.Now().Add(hubWriteTimeout))
+			if err := c.Conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}
 }

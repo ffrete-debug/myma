@@ -64,10 +64,6 @@ func HandleRCONWebSocket(c *gin.Context) {
 			break
 		}
 
-		// Apply a write deadline so a stalled client can't accumulate buffered
-		// responses on the server side.
-		_ = conn.SetWriteDeadline(time.Now().Add(rconWriteTimeout))
-
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
 			break
@@ -102,6 +98,11 @@ func HandleRCONWebSocket(c *gin.Context) {
 			output = output[:rconMaxOutput] + "\n... output truncated ..."
 		}
 
+		// Apply a write deadline so a stalled client can't accumulate buffered
+		// responses on the server side. It has to be refreshed immediately before
+		// the write: setting it ahead of ReadMessage would let it expire while the
+		// read blocks, failing the write for no reason.
+		_ = conn.SetWriteDeadline(time.Now().Add(rconWriteTimeout))
 		if err := conn.WriteMessage(websocket.TextMessage, []byte(output)); err != nil {
 			break
 		}
@@ -110,7 +111,9 @@ func HandleRCONWebSocket(c *gin.Context) {
 
 // safeWriteText is a best-effort text write used for control/protocol errors.
 // The WS connection may already be closing when these run, so failures are
-// swallowed.
+// swallowed. The deadline is refreshed here too, since these run from inside
+// read loops where any earlier deadline is already stale.
 func safeWriteText(conn *websocket.Conn, msg string) {
+	_ = conn.SetWriteDeadline(time.Now().Add(rconWriteTimeout))
 	_ = conn.WriteMessage(websocket.TextMessage, []byte(msg))
 }

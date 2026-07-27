@@ -9,6 +9,8 @@ import (
 	"ark-server-commander/service/update"
 	"ark-server-commander/utils"
 	"ark-server-commander/websocket"
+	"context"
+	"errors"
 	"net/http"
 	"os"
 	signal "os/signal"
@@ -75,6 +77,10 @@ func main() {
 	// Initialize audit log
 	middleware.InitAudit(database.GetDB())
 
+	// Periodically sweep expired JWT blacklist entries so the in-memory map
+	// cannot grow unbounded over the lifetime of the process
+	utils.StartBlacklistCleanup(time.Hour)
+
 	// Initialize update monitoring hub
 	updateHub := websocket.NewHub()
 	go updateHub.Run()
@@ -114,15 +120,20 @@ func main() {
 
 	// Logger
 	r.Use(func(c *gin.Context) {
-		reqID := c.GetString("request_id")
+		start := time.Now()
+
+		c.Next()
+
+		// Status and response size are only final once the handler chain has run
 		zap.L().Info("request",
 			zap.String("method", c.Request.Method),
 			zap.String("path", c.Request.URL.Path),
 			zap.Int("status", c.Writer.Status()),
-			zap.String("request_id", reqID),
+			zap.String("request_id", c.GetString("request_id")),
 			zap.String("ip", c.ClientIP()),
+			zap.Duration("latency", time.Since(start)),
+			zap.Int("size", c.Writer.Size()),
 		)
-		c.Next()
 	})
 
 	// Recovery
@@ -182,16 +193,6 @@ func main() {
 	// Register routes
 	routes.RegisterRoutes(r, updateService, updateHub)
 
-	// Graceful shutdown
-	go func() {
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-		<-quit
-		utils.Info("Received shutdown signal, gracefully shutting down...")
-		docker_manager.CloseDockerManager()
-		os.Exit(0)
-	}()
-
 	// Add Swagger routes
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -228,9 +229,33 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	if err := srv.ListenAndServe(); err != nil {
+	// Graceful shutdown: stop accepting new connections and drain in-flight
+	// requests, then return from main so the deferred cleanup actually runs
+	// (log flush and Docker manager close)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	shutdownDone := make(chan struct{})
+	go func() {
+		defer close(shutdownDone)
+
+		<-quit
+		utils.Info("Received shutdown signal, gracefully shutting down...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			utils.Error("Graceful shutdown timed out, forcing close", zap.Error(err))
+		}
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		utils.Fatal("Server failed to start", zap.Error(err))
 	}
+
+	// Wait for Shutdown to return before the deferred cleanup runs
+	<-shutdownDone
+	utils.Info("Server stopped")
 }
 
 // splitAndTrim splits a comma-separated environment value into a list of
