@@ -1,5 +1,5 @@
 [project]
-name = "myma"
+name = "ark-server-commander"
 version = "0.1.0"
 description = "ARK Server Commander - Web UI for managing ARK servers in Docker"
 authors = [
@@ -8,11 +8,11 @@ authors = [
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "pyyaml (>=6.0.3,<7.0.0)",
-    "requests (>=2.34.2,<3.0.0)",
-    "python-dotenv (>=1.2.2,<2.0.0)"
-]
+# pyyaml / requests / python-dotenv were declared but imported by nothing in
+# this repo. The last third-party import was selenium, used by the dev-only
+# helper smoke_test.py; that script has since been removed, so no Python
+# dependency remains.
+dependencies = []
 
 
 [build-system]

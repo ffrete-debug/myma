@@ -1,0 +1,56 @@
+# Codecov configuration.
+#
+# Not to be confused with .github/workflows/codecov.yml, which is the
+# workflow that produces and uploads the report. This file is the gate.
+#
+# Backend coverage is currently ~9% overall (measured with
+# `go test ./... -coverprofile`). The goal here is a ratchet, not a cliff:
+# nothing that exists today fails, but coverage cannot silently slide
+# backwards and new code is expected to arrive with tests.
+
+codecov:
+  require_ci_to_pass: true
+
+# go test writes paths prefixed with the module name (ark-server-commander/...)
+# but the files live under server/ in the repo. Without this mapping Codecov
+# cannot line up the report with the source tree.
+fixes:
+  - "ark-server-commander/::server/"
+
+coverage:
+  precision: 1
+  round: down
+  # Low end reflects reality today; high end is the aspiration.
+  range: "10...80"
+
+  status:
+    project:
+      default:
+        # "auto" == the base commit's coverage, so the bar rises as coverage
+        # improves and no absolute number needs maintaining.
+        target: auto
+        # Tolerate 1% of noise (moved files, refactors) before failing.
+        threshold: 1%
+        if_ci_failed: error
+        only_pulls: false
+
+    patch:
+      default:
+        # Applies only to lines the PR actually adds or changes. This is the
+        # part that moves the number: legacy code is untouched, but new code
+        # needs to be covered. Deliberately set below 80% because much of
+        # this codebase is Docker/RCON I/O that is awkward to unit test.
+        target: 60%
+        threshold: 5%
+        if_ci_failed: error
+
+ignore:
+  - "server/docs/**"          # swagger-generated
+  - "server/**/*_test.go"
+  - "server/main.go"          # process wiring, covered by running the binary
+  - "ui/**"                   # frontend coverage is not uploaded yet
+
+comment:
+  layout: "condensed_header, diff, flags, components, condensed_files"
+  behavior: default
+  require_changes: false

@@ -1,0 +1,83 @@
+# golangci-lint configuration for the Go backend in server/.
+#
+# The config lives at the repo root; golangci-lint walks up from its
+# working directory (server/) to find it.
+#
+# Rollout note: this codebase has a pre-existing backlog of lint findings
+# (see notes in the PR that added this file). CI therefore runs the linter
+# with `only-new-issues: true`, so the backlog does not block builds while
+# every newly written or modified line is fully gated. Removing that flag
+# once the backlog is burned down is the intended end state.
+
+version: "2"
+
+run:
+  timeout: 5m
+  # Lint test files too - unchecked errors in tests hide real failures.
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck      # unchecked errors - the main reason this config exists
+    - govet         # superset of the `go vet` step
+    - ineffassign   # assignments that are never read
+    - staticcheck   # correctness/simplification (subsumes gosimple + stylecheck)
+    - unused        # unused private identifiers
+
+  settings:
+    errcheck:
+      # A discarded type assertion (x := y.(T)) panics rather than returning
+      # a bad value, so require the comma-ok form.
+      check-type-assertions: true
+      # Explicit `_ =` is an intentional, greppable "I considered this".
+      check-blank: false
+      exclude-functions:
+        # Close() on a reader/response body/conn in a deferred cleanup path
+        # has no meaningful recovery action. Note this does NOT cover writers
+        # where Close() flushes (e.g. *tar.Writer, *os.File being written) -
+        # those still surface, which is correct.
+        - (io.Closer).Close
+        # Best-effort console output; a failed write to stdout is not
+        # actionable and checking it adds noise at every call site.
+        - fmt.Fprintf(os.Stderr)
+        - fmt.Fprintln(os.Stderr)
+
+    staticcheck:
+      # This is golangci-lint's default check set plus one deliberate removal.
+      checks:
+        - all
+        - -ST1000  # missing package comment
+        - -ST1003  # naming conventions (initialisms) - churn, no correctness win
+        - -ST1016  # inconsistent receiver names
+        - -ST1020  # comment on exported function
+        - -ST1021  # comment on exported type
+        - -ST1022  # comment on exported var
+        # ST1005 (error strings should not be capitalized) fires on 74
+        # pre-existing sites. It is style-only and rewording every error
+        # string would create a large, review-hostile diff that touches
+        # user-visible API messages. Left off deliberately.
+        - -ST1005
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      # Swagger-generated package - not hand-maintained.
+      - docs
+    rules:
+      # t.Setenv/os.Setenv and cleanup helpers in tests: a failure fails the
+      # test anyway, and errcheck noise here crowds out real findings.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+issues:
+  # Report everything rather than truncating - truncation hides the real
+  # size of the backlog.
+  max-issues-per-linter: 0
+  max-same-issues: 0
