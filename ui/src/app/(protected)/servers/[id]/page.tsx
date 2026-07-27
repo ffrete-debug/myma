@@ -18,6 +18,7 @@ export default function ServerDetailPage() {
   const params = useParams();
   const router = useRouter();
   const serverId = params.id as string;
+  const backupApi = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
 
   const [server, setServer] = useState<Server | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +52,7 @@ export default function ServerDetailPage() {
 
   const fetchBackups = useCallback(async () => {
     try {
-      const res = await fetch('/api/backups', { credentials: 'same-origin' });
+      const res = await fetch(`${backupApi}/backups`, { credentials: 'same-origin' });
       if (res.ok) {
         const data = await res.json();
         setBackups(data.data || []);
@@ -88,7 +89,7 @@ export default function ServerDetailPage() {
   const handleCreateBackup = async () => {
     setBackupCreating(true);
     try {
-      const res = await fetch('/api/backups', {
+      const res = await fetch(`${backupApi}/backups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
@@ -107,7 +108,7 @@ export default function ServerDetailPage() {
   const handleDeleteBackup = async (backupId: number) => {
     if (!confirm(t('backupDeleteConfirm'))) return;
     try {
-      const res = await fetch(`/api/backups/${backupId}`, { method: 'DELETE', credentials: 'same-origin' });
+      const res = await fetch(`${backupApi}/backups/${backupId}`, { method: 'DELETE', credentials: 'same-origin' });
       if (!res.ok) throw new Error(await res.text());
       setBackups((prev) => prev.filter((b) => b.id !== backupId));
     } catch {
@@ -118,7 +119,7 @@ export default function ServerDetailPage() {
   const handleRestoreBackup = async (backupId: number) => {
     if (!confirm(t('backupRestoreConfirm'))) return;
     try {
-      const res = await fetch('/api/backups/restore', {
+      const res = await fetch(`${backupApi}/backups/restore`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
@@ -133,7 +134,7 @@ export default function ServerDetailPage() {
   };
 
   const handleDownloadBackup = (filename: string) => {
-    window.open(`/api/backups/download/${encodeURIComponent(filename)}`, '_blank');
+    window.open(`${backupApi}/backups/download/${encodeURIComponent(filename)}`, '_blank');
   };
 
   const getStatusVariant = (s: Server['status']): 'default' | 'destructive' | 'secondary' | 'outline' => {

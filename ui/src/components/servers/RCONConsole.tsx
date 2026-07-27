@@ -70,7 +70,7 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
     }
 
     const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
-    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https?:\/\//, (m) => m === 'https:' ? 'wss:' : 'ws:');
+    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https?:\/\//, (m) => m === 'https:' ? 'wss://' : 'ws://');
     const url = `${wsBase}/api/ws/rcon/${serverId}?token=${encodeURIComponent(token)}`;
     setConnectionState('connecting');
     const ws = new WebSocket(url);

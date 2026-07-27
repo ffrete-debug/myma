@@ -26,7 +26,7 @@ export function useWebSocket(
     if (!token) return;
 
     const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
-    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https?:\/\//, (m) => m === 'https:' ? 'wss:' : 'ws:');
+    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https?:\/\//, (m) => m === 'https:' ? 'wss://' : 'ws://');
     const url = `${wsBase}/api/ws/updates/${serverId}?token=${encodeURIComponent(token)}`;
 
     const ws = new WebSocket(url);
