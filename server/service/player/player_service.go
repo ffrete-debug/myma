@@ -43,7 +43,7 @@ func (s *PlayerService) GetPlayers(userID uint, serverID string) (models.PlayerL
 		return models.PlayerListResponse{}, fmt.Errorf("rcon listplayers failed: %w", err)
 	}
 
-	online := parseListPlayersOutput(output)
+	online := ParseListPlayersOutput(output)
 
 	// Persist online players in DB (upsert by steam_id + server_id)
 	for _, p := range online {
@@ -111,12 +111,16 @@ func (s *PlayerService) GetPlayersHistory(userID uint, serverID string) ([]model
 	return players, nil
 }
 
-// parseListPlayersOutput parses the raw RCON output of the `listplayers` command.
+// ParseListPlayersOutput parses the raw RCON output of the `listplayers` command.
+// ParseListPlayersOutput turns an ARK "listplayers" RCON response into player
+// records. Exported so the metrics service can reuse it for population counts
+// without duplicating the parsing rules.
+//
 // ARK RCON returns output in a line-based format like:
 //  1. "PlayerName" (<steamid>) - Duration: 1h 23m 45s
 //
 // or similar variations with different delimiters.
-func parseListPlayersOutput(output string) []models.OnlinePlayer {
+func ParseListPlayersOutput(output string) []models.OnlinePlayer {
 	var players []models.OnlinePlayer
 
 	lines := strings.Split(output, "\n")

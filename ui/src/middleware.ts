@@ -10,7 +10,7 @@ const LOCALE_COOKIE_OPTIONS = {
 // Pages rendered by app/(protected)/. The route group name is stripped from the
 // URL and the filesystem is not readable from the edge runtime, so this list
 // cannot be derived at runtime - it MUST be kept in sync with app/(protected)/.
-const protectedPaths = ['/audit-logs', '/home', '/players', '/plugins', '/servers'];
+const protectedPaths = ['/audit-logs', '/home', '/metrics', '/players', '/plugins', '/servers'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

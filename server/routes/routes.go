@@ -4,6 +4,7 @@ import (
 	"ark-server-commander/controllers/audit"
 	"ark-server-commander/controllers/auth"
 	"ark-server-commander/controllers/images"
+	"ark-server-commander/controllers/metrics"
 	"ark-server-commander/controllers/player"
 	"ark-server-commander/controllers/plugins"
 	"ark-server-commander/controllers/rcon"
@@ -141,6 +142,13 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			// Audit logs
 			auditRoutes := protected.Group("/audit-logs")
 			auditRoutes.GET("", audit.GetAuditLogs)
+
+			// Metrics dashboard (CPU, RAM, players)
+			metricsRoutes := protected.Group("/metrics")
+			{
+				metricsRoutes.GET("", metrics.GetAllMetrics)
+				metricsRoutes.GET("/:id", metrics.GetServerMetrics)
+			}
 
 			// Update status（Issue #3）
 			updateRoutes := protected.Group("/updates")
