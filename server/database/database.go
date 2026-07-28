@@ -56,7 +56,7 @@ func InitDB() {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	// Auto-migrate database schema
-	err = DB.AutoMigrate(&models.User{}, &models.Server{}, &models.AuditLog{}, &models.Player{}, &models.Backup{}, &models.ServerMod{}, &models.UpdateStatus{})
+	err = DB.AutoMigrate(&models.User{}, &models.Server{}, &models.AuditLog{}, &models.Player{}, &models.Backup{}, &models.ServerMod{}, &models.BackupSchedule{}, &models.UpdateStatus{})
 	if err != nil {
 		utils.Fatal("Database migration failed", zap.Error(err))
 	}

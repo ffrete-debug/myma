@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { BackupScheduleCard } from '@/components/servers/BackupScheduleCard';
 import { useTranslations } from 'next-intl';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -378,6 +379,8 @@ export default function ServerDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <BackupScheduleCard serverId={serverId} />
     </div>
   );
 }
