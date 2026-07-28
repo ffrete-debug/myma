@@ -102,14 +102,22 @@ func (sa *ServerArgs) GenerateArgsStringWithMods(server Server, modIDs []string)
 	queryParams = append(queryParams, "?RCONEnabled=True")
 	queryParams = append(queryParams, fmt.Sprintf("?RCONPort=%d", server.RCONPort))
 	queryParams = append(queryParams, fmt.Sprintf("?ServerAdminPassword=%s", server.AdminPassword))
-
-	// SessionName is deliberately NOT emitted here. The game image runs
+	// SessionName goes on the command line ONLY when it contains no whitespace.
+	//
+	// The game image runs
 	//     SERVER_CMD="$PROTON run ShooterGameServer.exe ${SERVER_ARGS}"; $SERVER_CMD
-	// with SERVER_ARGS expanded UNQUOTED, so a session name containing a space
-	// word-splits the launch string: the name is truncated at the first space
-	// and every query parameter ordered after it is silently dropped.
-	// SessionName is written to GameUserSettings.ini [SessionSettings] instead,
-	// which has no quoting problem. See utils.GetDefaultGameUserSettings.
+	// with SERVER_ARGS expanded UNQUOTED, so a name containing a space
+	// word-splits the launch string: the name is truncated at the first space and
+	// every query parameter after it is dropped.
+	//
+	// A space-free name is passed here because that is what ARK honours on FIRST
+	// boot - it regenerates GameUserSettings.ini then, discarding the template we
+	// seeded. A name WITH spaces cannot be passed safely through this image at
+	// all, so it relies on GameUserSettings.ini, which ARK does honour on every
+	// subsequent boot. Both behaviours were verified against a real server.
+	if server.SessionName != "" && !strings.ContainsAny(server.SessionName, " \t\n\r") {
+		queryParams = append(queryParams, fmt.Sprintf("?SessionName=%s", server.SessionName))
+	}
 
 	if server.GameModIds != "" {
 		queryParams = append(queryParams, fmt.Sprintf("?GameModIds=%s", server.GameModIds))

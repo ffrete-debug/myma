@@ -53,12 +53,12 @@ func TestResolvedModsFallBackToGameModIdsQueryParam(t *testing.T) {
 	}
 }
 
-// SessionName must NOT appear on the command line. The image runs
+// A name containing a space must NOT reach the command line. The image runs
 // `$PROTON run ShooterGameServer.exe ${SERVER_ARGS}` with SERVER_ARGS expanded
-// UNQUOTED, so a name containing a space word-splits the launch string: the name
-// is truncated at the first space and every query parameter after it is dropped.
-// It lives in GameUserSettings.ini instead.
-func TestSessionNameIsNotOnTheCommandLine(t *testing.T) {
+// UNQUOTED, so it would word-split: the name truncates at the first space and
+// every query parameter after it is dropped. Such names rely on
+// GameUserSettings.ini, which a real server was observed to honour.
+func TestSpacedSessionNameStaysOffTheCommandLine(t *testing.T) {
 	sa := NewServerArgs()
 	server := baseServer()
 	server.SessionName = "My Cool Server"
@@ -66,10 +66,40 @@ func TestSessionNameIsNotOnTheCommandLine(t *testing.T) {
 	got := sa.GenerateArgsStringWithMods(server, nil)
 
 	if strings.Contains(got, "SessionName") {
-		t.Errorf("SessionName must not reach SERVER_ARGS, got:\n%s", got)
+		t.Errorf("a spaced SessionName must not reach SERVER_ARGS, got:\n%s", got)
 	}
 	if strings.Contains(got, "My Cool Server") {
 		t.Errorf("session name text leaked into the launch string:\n%s", got)
+	}
+}
+
+// A space-free name IS passed, because that is what ARK honours on first boot -
+// it regenerates GameUserSettings.ini then and discards the seeded template.
+func TestSpaceFreeSessionNameIsPassedOnTheCommandLine(t *testing.T) {
+	sa := NewServerArgs()
+	server := baseServer()
+	server.SessionName = "MyCoolServer"
+
+	got := sa.GenerateArgsStringWithMods(server, nil)
+
+	if !strings.Contains(got, "?SessionName=MyCoolServer") {
+		t.Fatalf("expected a space-free SessionName on the command line, got:\n%s", got)
+	}
+}
+
+// Whatever the name, the launch string must never gain a whitespace-split token.
+func TestSessionNameNeverSplitsTheQuerySection(t *testing.T) {
+	for _, name := range []string{"Simple", "With Space", "Tab\tName", "trailing "} {
+		sa := NewServerArgs()
+		server := baseServer()
+		server.SessionName = name
+
+		got := sa.GenerateArgsStringWithMods(server, nil)
+		query := strings.Fields(got)[0]
+
+		if strings.Contains(query, " ") {
+			t.Errorf("name %q produced a split query section: %s", name, query)
+		}
 	}
 }
 
