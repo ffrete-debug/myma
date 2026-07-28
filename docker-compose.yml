@@ -14,6 +14,12 @@ services:
     ports:
       - "8080:8080"
       - "3000:3000"
+    # Game servers run as separate containers and publish their RCON port on the
+    # host. This container reaches them through the host gateway, so RCON_HOST
+    # defaults to host.docker.internal — which only resolves if we map it here.
+    # Without this, every RCON dial fails.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     volumes:

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"ark-server-commander/config"
 	"ark-server-commander/database"
 	"ark-server-commander/models"
 	"ark-server-commander/service/rcon"
@@ -88,7 +89,7 @@ func HandleRCONWebSocket(c *gin.Context) {
 
 		lastCommand = time.Now()
 
-		output, err := rcon.ExecuteCommand("localhost", server.RCONPort, server.AdminPassword, string(msg))
+		output, err := rcon.ExecuteCommand(config.RCONHost, server.RCONPort, server.AdminPassword, string(msg))
 		if err != nil {
 			safeWriteText(conn, "error: "+err.Error())
 			continue

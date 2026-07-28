@@ -97,6 +97,16 @@ export default function PluginsPage() {
 
   useEffect(() => { fetchServers().catch(() => {}); }, [fetchServers]);
 
+  // Preselect the server passed as ?server_id=, which is how the "Plugins"
+  // button on a server card links straight into that server's files.
+  // Read from location instead of useSearchParams so this page does not need a
+  // Suspense boundary to build.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('server_id');
+    const id = Number(raw);
+    if (raw && Number.isInteger(id) && id > 0) setSelectedServerId(id);
+  }, []);
+
   const loadFiles = useCallback(async (serverId: number, path: string) => {
     setLoading(true);
     setError('');

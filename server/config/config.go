@@ -10,7 +10,29 @@ var (
 	JWTSecret  []byte
 	DBPath     = "ark_server.db"
 	ServerPort = "8080"
+
+	// RCONHost is the address used to reach a game server's RCON port.
+	//
+	// Game servers run as separate containers and publish their RCON port on
+	// the Docker host. This process therefore cannot use "localhost": inside a
+	// container that resolves to this container, not the game server, so every
+	// dial fails. When containerised we go out via the Docker host gateway to
+	// the published port; on a bare-metal run the loopback address is correct.
+	// Override with RCON_HOST when the game servers live somewhere else.
+	RCONHost = "127.0.0.1"
 )
+
+// dockerHostGateway is the alias Docker resolves to the host when the container
+// is started with `--add-host host.docker.internal:host-gateway` (set for this
+// service in docker-compose.yml).
+const dockerHostGateway = "host.docker.internal"
+
+// runningInContainer reports whether this process is inside a container.
+// /.dockerenv is created by the Docker daemon in every container it starts.
+func runningInContainer() bool {
+	_, err := os.Stat("/.dockerenv")
+	return err == nil
+}
 
 // Weak secret blacklist
 var weakSecrets = []string{
@@ -52,6 +74,12 @@ func InitConfig() error {
 
 	if port := os.Getenv("SERVER_PORT"); port != "" {
 		ServerPort = port
+	}
+
+	if host := os.Getenv("RCON_HOST"); host != "" {
+		RCONHost = host
+	} else if runningInContainer() {
+		RCONHost = dockerHostGateway
 	}
 
 	return nil
