@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"ark-server-commander/middleware"
+	rconservice "ark-server-commander/service/rcon"
 	"ark-server-commander/service/server"
 	"ark-server-commander/utils"
 	"github.com/gin-gonic/gin"
@@ -59,5 +60,50 @@ func ExecuteRCON(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Command executed",
 		"data":    gin.H{"output": output},
+	})
+}
+
+// ActionRequest is a structured admin operation from the UI.
+//
+// The command string is built server-side from the action and its parameters
+// rather than being supplied by the caller: ARK's RCON is line-oriented, so a
+// newline inside a message or player name would otherwise let a caller append
+// a second, unintended command.
+type ActionRequest struct {
+	Action string            `json:"action" binding:"required"`
+	Params map[string]string `json:"params"`
+}
+
+// ExecuteRCONAction handles POST /servers/:id/rcon/action.
+func ExecuteRCONAction(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	serverID := c.Param("id")
+
+	var req ActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "Invalid request", err.Error())
+		return
+	}
+
+	command, err := rconservice.BuildCommand(rconservice.Action(req.Action), req.Params)
+	if err != nil {
+		utils.BadRequest(c, "Invalid action", err.Error())
+		return
+	}
+
+	output, execErr := executor.ExecuteRCONCommand(userID, serverID, command)
+
+	// The resolved command is audited rather than the raw request, so the log
+	// records exactly what the server was asked to do.
+	middleware.Log.Log(userID, "rcon.action", fmt.Sprintf("server:%s", serverID), command, c.ClientIP())
+
+	if execErr != nil {
+		utils.InternalError(c, "RCON execution failed", execErr.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Command executed",
+		"data":    gin.H{"command": command, "output": output},
 	})
 }

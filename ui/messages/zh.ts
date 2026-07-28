@@ -1054,6 +1054,20 @@ BabyImprintAmountMultiplier=1.0`
   },
 
   // 审计日志
+  rcon: {
+    quickActions: '快捷操作',
+    actions: '操作',
+    broadcastPlaceholder: '向所有玩家广播消息\u2026',
+    saveWorld: '保存世界',
+    setTime: '设置时间',
+    destroyWildDinos: '清除野生生物',
+    confirmDestroyDinos: '这将清除所有野生生物，确定吗？',
+    confirm: '确认',
+    cancel: '取消',
+    kick: '踢出玩家',
+    ban: '封禁玩家',
+    actionFailed: '命令执行失败',
+  },
   backups: {
     scheduleTitle: '自动备份',
     scheduleHint: '按计划执行备份，并可选择上传到异地存储。',

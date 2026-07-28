@@ -1054,6 +1054,20 @@ BabyImprintAmountMultiplier=1.0`
   },
 
   // Logs de auditoria
+  rcon: {
+    quickActions: 'Ações rápidas',
+    actions: 'Ações',
+    broadcastPlaceholder: 'Transmitir uma mensagem para todos os jogadores\u2026',
+    saveWorld: 'Salvar mundo',
+    setTime: 'Definir hora',
+    destroyWildDinos: 'Remover dinos selvagens',
+    confirmDestroyDinos: 'Isso remove todas as criaturas selvagens. Tem certeza?',
+    confirm: 'Confirmar',
+    cancel: 'Cancelar',
+    kick: 'Expulsar jogador',
+    ban: 'Banir jogador',
+    actionFailed: 'Falha ao executar o comando',
+  },
   backups: {
     scheduleTitle: 'Backups automáticos',
     scheduleHint: 'Execute backups periodicamente e, se quiser, envie-os para fora do host.',

@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { Users, RefreshCw, Loader2, Shield, Clock, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
+import { Users, RefreshCw, Loader2, Shield, Clock, MapPin, ChevronDown, ChevronUp, UserMinus, Ban, AlertTriangle } from 'lucide-react';
+import api from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -52,9 +53,34 @@ const getAuthHeaders = () => {
 
 export default function PlayersPage() {
   const t = useTranslations('players');
+  const tRcon = useTranslations('rcon');
   const tCommon = useTranslations('common');
 
   const [serverId, setServerId] = useState('');
+  const [playerAction, setPlayerAction] = useState<string | null>(null);
+  const [confirmBan, setConfirmBan] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
+
+  // Kick/ban are sent as structured actions; the server builds the RCON
+  // command from the validated steam id rather than trusting a string here.
+  const runPlayerAction = async (action: 'kick' | 'ban', steamId: string) => {
+    if (!serverId || !steamId) return;
+    setPlayerAction(steamId);
+    setActionError('');
+    try {
+      await api.post(`/api/servers/${serverId}/rcon/action`, {
+        action,
+        params: { steam_id: steamId },
+      });
+      await fetchPlayers();
+    } catch (e) {
+      const err = e as { response?: { data?: { error?: string; message?: string } } };
+      setActionError(err.response?.data?.error || err.response?.data?.message || tRcon('actionFailed'));
+    } finally {
+      setPlayerAction(null);
+      setConfirmBan(null);
+    }
+  };
   const [players, setPlayers] = useState<PlayerListResponse | null>(null);
   const [history, setHistory] = useState<DBPlayer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -204,6 +230,11 @@ export default function PlayersPage() {
               <CardTitle className="text-lg">{t('onlinePlayers')}</CardTitle>
             </CardHeader>
             <CardContent>
+              {actionError && (
+                <div className="mb-3 rounded-md border border-red-900/50 bg-red-950/30 px-3 py-2 text-xs text-red-300">
+                  {actionError}
+                </div>
+              )}
               {players.online.length === 0 ? (
                 <p className="text-muted-foreground text-sm">{t('noOnlinePlayers')}</p>
               ) : (
@@ -214,6 +245,7 @@ export default function PlayersPage() {
                       <TableHead>Steam ID</TableHead>
                       <TableHead>Character ID</TableHead>
                       <TableHead>{t('status')}</TableHead>
+                      <TableHead className="text-right">{tRcon('actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -224,6 +256,38 @@ export default function PlayersPage() {
                         <TableCell className="font-mono text-xs">{p.character_id || '—'}</TableCell>
                         <TableCell>
                           <Badge variant="default">{t('online')}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {/* Actions go through the structured RCON endpoint,
+                              which builds the command server-side from the
+                              validated id. */}
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              type="button" variant="ghost" size="sm"
+                              disabled={!p.steam_id || playerAction !== null}
+                              onClick={() => runPlayerAction('kick', p.steam_id)}
+                              title={tRcon('kick')} aria-label={tRcon('kick')}
+                            >
+                              <UserMinus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button" variant="ghost" size="sm"
+                              className="text-red-400 hover:text-red-300"
+                              disabled={!p.steam_id || playerAction !== null}
+                              onClick={() => {
+                                // Banning is not undoable from this screen, so
+                                // it takes an explicit confirmation.
+                                if (confirmBan === p.steam_id) runPlayerAction('ban', p.steam_id);
+                                else setConfirmBan(p.steam_id);
+                              }}
+                              title={confirmBan === p.steam_id ? tRcon('confirm') : tRcon('ban')}
+                              aria-label={confirmBan === p.steam_id ? tRcon('confirm') : tRcon('ban')}
+                            >
+                              {confirmBan === p.steam_id
+                                ? <AlertTriangle className="h-4 w-4" />
+                                : <Ban className="h-4 w-4" />}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

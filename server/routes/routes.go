@@ -103,6 +103,7 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 				serverRoutes.POST("/:id/recreate", servers.RecreateContainer)
 				serverRoutes.GET("/:id/rcon", servers.GetServerRCON)
 				serverRoutes.POST("/:id/rcon/execute", rcon.ExecuteRCON)
+				serverRoutes.POST("/:id/rcon/action", rcon.ExecuteRCONAction)
 				serverRoutes.GET("/:id/logs", servers.GetServerLogs)
 			}
 
