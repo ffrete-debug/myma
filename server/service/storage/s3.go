@@ -73,10 +73,27 @@ func (c *Client) ObjectKey(name string) string {
 // size must be the exact content length: S3 requires it, and a streaming body
 // of unknown length would otherwise be sent chunked, which the signature does
 // not cover here.
-func (c *Client) Upload(key string, body io.Reader, size int64, contentType string) error {
+func (c *Client) Name() string { return "s3" }
+
+// Configured satisfies Provider; Valid is kept for existing callers.
+func (c *Client) Configured() bool { return c.cfg.Valid() }
+
+// Destination is a non-secret description shown in the UI.
+func (c *Client) Destination() string {
+	if c.cfg.Prefix != "" {
+		return fmt.Sprintf("%s/%s (%s)", c.cfg.Bucket, strings.Trim(c.cfg.Prefix, "/"), c.cfg.Endpoint)
+	}
+	return fmt.Sprintf("%s (%s)", c.cfg.Bucket, c.cfg.Endpoint)
+}
+
+// Upload stores body under the configured prefix. `name` is a bare file name;
+// the prefix is applied here so every provider takes the same argument.
+func (c *Client) Upload(name string, body io.Reader, size int64, contentType string) error {
 	if !c.cfg.Valid() {
 		return fmt.Errorf("object storage is not configured")
 	}
+
+	key := c.ObjectKey(name)
 
 	endpoint, err := url.Parse(c.cfg.Endpoint)
 	if err != nil {

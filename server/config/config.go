@@ -37,6 +37,31 @@ var (
 	// S3PathStyle is required by MinIO and most self-hosted gateways, which do
 	// not implement virtual-host bucket addressing.
 	S3PathStyle = false
+
+	// BackupProvider selects where automated backups are uploaded:
+	// "s3", "dropbox", "gdrive", "webdav", or empty to disable cloud upload.
+	BackupProvider = ""
+
+	// Dropbox. A refresh token plus app credentials is preferred: Dropbox
+	// access tokens now expire after a few hours, so a token-only setup stops
+	// working silently after the first day.
+	DropboxAccessToken  = ""
+	DropboxRefreshToken = ""
+	DropboxAppKey       = ""
+	DropboxAppSecret    = ""
+	DropboxPath         = ""
+
+	// Google Drive. Drive has no long-lived token, so an OAuth2 refresh token
+	// is the only workable shape for an unattended service.
+	GDriveClientID     = ""
+	GDriveClientSecret = ""
+	GDriveRefreshToken = ""
+	GDriveFolderID     = ""
+
+	// WebDAV covers the self-hosted case (Nextcloud, ownCloud, plain DAV).
+	WebDAVURL      = ""
+	WebDAVUsername = ""
+	WebDAVPassword = ""
 )
 
 // dockerHostGateway is the alias Docker resolves to the host when the container
@@ -101,6 +126,28 @@ func InitConfig() error {
 	S3SecretKey = os.Getenv("S3_SECRET_KEY")
 	S3Prefix = os.Getenv("S3_PREFIX")
 	S3PathStyle = os.Getenv("S3_PATH_STYLE") == "true"
+
+	BackupProvider = os.Getenv("BACKUP_PROVIDER")
+	// Back-compat: deployments that configured S3 before BACKUP_PROVIDER
+	// existed keep working without touching their environment.
+	if BackupProvider == "" && os.Getenv("S3_ENDPOINT") != "" {
+		BackupProvider = "s3"
+	}
+
+	DropboxAccessToken = os.Getenv("DROPBOX_ACCESS_TOKEN")
+	DropboxRefreshToken = os.Getenv("DROPBOX_REFRESH_TOKEN")
+	DropboxAppKey = os.Getenv("DROPBOX_APP_KEY")
+	DropboxAppSecret = os.Getenv("DROPBOX_APP_SECRET")
+	DropboxPath = os.Getenv("DROPBOX_PATH")
+
+	GDriveClientID = os.Getenv("GDRIVE_CLIENT_ID")
+	GDriveClientSecret = os.Getenv("GDRIVE_CLIENT_SECRET")
+	GDriveRefreshToken = os.Getenv("GDRIVE_REFRESH_TOKEN")
+	GDriveFolderID = os.Getenv("GDRIVE_FOLDER_ID")
+
+	WebDAVURL = os.Getenv("WEBDAV_URL")
+	WebDAVUsername = os.Getenv("WEBDAV_USERNAME")
+	WebDAVPassword = os.Getenv("WEBDAV_PASSWORD")
 	if region := os.Getenv("S3_REGION"); region != "" {
 		S3Region = region
 	}
