@@ -6,7 +6,13 @@ on:
   pull_request:
     # Stacked PRs target their parent branch rather than main, so restricting
     # this to [main] silently skipped CI on every PR but the bottom of a stack.
-    branches: [main, 'fix/**', 'chore/**', 'dev/**']
+    branches: [main, 'feat/**', 'fix/**', 'chore/**', 'dev/**']
+    # `edited` matters for stacks specifically: retargeting a PR's base (either
+    # by hand or by GitHub after the parent merges) fires only `edited`. Without
+    # it a retargeted PR keeps whatever checks it had against the OLD base — or,
+    # if the old base was an unlisted branch, no checks at all — and can then be
+    # merged into main having never been tested against it.
+    types: [opened, synchronize, reopened, edited]
 
 # Least privilege: CI only reads the repo. Individual jobs narrow further.
 permissions:
