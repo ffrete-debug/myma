@@ -12,7 +12,7 @@ import (
 	"ark-server-commander/database"
 	"ark-server-commander/middleware"
 	"ark-server-commander/models"
-	"ark-server-commander/service/backup"
+	backupsvc "ark-server-commander/service/backup"
 	arkDocker "ark-server-commander/service/docker_manager"
 	arkServer "ark-server-commander/service/server"
 	"ark-server-commander/utils"
@@ -20,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var backupService = backup.NewBackupService()
+var backupService = backupsvc.NewBackupService()
 
 // ListBackups Get backups for a server
 // @Summary List backups
@@ -148,7 +148,7 @@ func DownloadBackup(c *gin.Context) {
 		return
 	}
 
-	filePath := filepath.Join(backup.BackupDir, filename)
+	filePath := filepath.Join(backupsvc.BackupDir, filename)
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		utils.NotFound(c, "Resource not found", "Backup file not found")
 		return
@@ -252,7 +252,19 @@ func restoreBackupAsync(backup models.Backup, server models.Server) {
 	}
 
 	volumeName := utils.GetServerVolumeName(server.ID)
-	backupDirAbs, _ := filepath.Abs("backups")
+
+	// Open the archive from the app's own filesystem and stream it in. It used
+	// to be handed to Docker as a bind-mount source, which the daemon resolves
+	// on the HOST - the same path confusion that made downloads 404.
+	archive, err := os.Open(filepath.Join(backupsvc.BackupDir, backup.Filename))
+	if err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  "open backup archive: " + err.Error(),
+		})
+		return
+	}
+	defer func() { _ = archive.Close() }()
 
 	// 2. Remove existing volume
 	if err := dm.RemoveSingleVolume(volumeName); err != nil {
@@ -273,7 +285,7 @@ func restoreBackupAsync(backup models.Backup, server models.Server) {
 	}
 
 	// 4. Extract backup tar into new volume
-	if err := dm.RestoreVolume(volumeName, backupDirAbs, backup.Filename); err != nil {
+	if err := dm.RestoreVolume(volumeName, backup.Filename, archive); err != nil {
 		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
 			"status": "failed",
 			"error":  "restore volume: " + err.Error(),

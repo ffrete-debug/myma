@@ -145,3 +145,63 @@ func GenerateGameModIdsEnv(gameModIds string) string {
 	}
 	return gameModIds
 }
+
+// EnsureSessionName forces the SessionName key in a GameUserSettings.ini body to
+// match the server's configured name.
+//
+// SessionName is deliberately not passed on the command line: the game image
+// expands SERVER_ARGS unquoted, so a name containing a space word-splits the
+// launch string and truncates the name (and drops any later query parameter).
+// The INI has no such problem, which makes it the authoritative source — but it
+// only stays correct if a rename is written through to it, which is what this
+// does.
+//
+// The key is upserted under both [ServerSettings] and [SessionSettings]: ARK
+// reads it from SessionSettings, while ServerSettings is what the bundled
+// template writes and what users expect to see.
+func EnsureSessionName(ini, sessionName string) string {
+	if sessionName == "" {
+		return ini
+	}
+
+	sections := []string{"[ServerSettings]", "[SessionSettings]"}
+	lines := strings.Split(ini, "\n")
+
+	currentSection := ""
+	handled := map[string]bool{}
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			currentSection = trimmed
+			continue
+		}
+		if !strings.HasPrefix(strings.TrimSpace(strings.ToLower(trimmed)), "sessionname=") {
+			continue
+		}
+		for _, s := range sections {
+			if currentSection == s {
+				lines[i] = "SessionName=" + sessionName
+				handled[s] = true
+			}
+		}
+	}
+
+	out := strings.Join(lines, "\n")
+
+	// Append the key to any target section that did not already contain it, and
+	// the section itself if it is missing entirely.
+	for _, s := range sections {
+		if handled[s] {
+			continue
+		}
+		if idx := strings.Index(out, s); idx >= 0 {
+			insertAt := idx + len(s)
+			out = out[:insertAt] + "\nSessionName=" + sessionName + out[insertAt:]
+			continue
+		}
+		out = strings.TrimRight(out, "\n") + "\n\n" + s + "\nSessionName=" + sessionName + "\n"
+	}
+
+	return out
+}

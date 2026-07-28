@@ -24,6 +24,10 @@ services:
       - .env
     volumes:
       - ./data:/data
+      # Backup archives. Without this, backups live inside the container and are
+      # lost whenever it is replaced. The app writes them itself now, so host and
+      # container paths do NOT need to match.
+      - ./backups:/app/backups
       # Required: the app manages ARK game-server containers via the Docker SDK.
       # :ro only makes the socket file itself read-only on the bind; the Docker
       # API reached through it is still fully read-write. Defence in depth only.

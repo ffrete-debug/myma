@@ -42,6 +42,12 @@ func (dm *DockerManager) CreateSingleVolume(volumeName string) error {
 		return fmt.Errorf(" YesNo : %v", err)
 	}
 	if exists {
+		// Adopting an existing volume means inheriting whatever data it holds.
+		// That is correct on a retry, but if it happens for a *new* server it
+		// means a stale volume survived a previous delete - which is how old
+		// plugins used to reappear on a freshly created server.
+		utils.Warn("reusing an existing Docker volume; it may contain data from a previous server",
+			zap.String("volume", volumeName))
 		utils.Debug("DockerVolume already exists， Create", zap.String("volume", volumeName))
 		return nil
 	}

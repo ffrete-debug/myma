@@ -105,6 +105,10 @@ func (s *Service) AddMod(ctx context.Context, serverID, userID uint, workshopID 
 		return nil, fmt.Errorf("add mod: %w", err)
 	}
 
+	if err := syncGameModIds(serverID); err != nil {
+		return nil, err
+	}
+
 	return &mod, nil
 }
 
@@ -114,7 +118,7 @@ func (s *Service) RemoveMod(serverID, userID uint, workshopID string) error {
 		return err
 	}
 
-	return database.DB.Transaction(func(tx *gorm.DB) error {
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
 		res := tx.Where("server_id = ? AND workshop_id = ?", serverID, workshopID).Delete(&models.ServerMod{})
 		if res.Error != nil {
 			return fmt.Errorf("remove mod: %w", res.Error)
@@ -122,8 +126,15 @@ func (s *Service) RemoveMod(serverID, userID uint, workshopID string) error {
 		if res.RowsAffected == 0 {
 			return fmt.Errorf("mod not found on this server")
 		}
-		return renumber(tx, serverID)
-	})
+		if err := renumber(tx, serverID); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return syncGameModIds(serverID)
 }
 
 // SetEnabled toggles a mod without losing its place in the load order.
@@ -141,7 +152,8 @@ func (s *Service) SetEnabled(serverID, userID uint, workshopID string, enabled b
 	if res.RowsAffected == 0 {
 		return fmt.Errorf("mod not found on this server")
 	}
-	return nil
+
+	return syncGameModIds(serverID)
 }
 
 // Reorder applies a complete desired load order.
@@ -154,7 +166,7 @@ func (s *Service) Reorder(serverID, userID uint, workshopIDs []string) error {
 		return err
 	}
 
-	return database.DB.Transaction(func(tx *gorm.DB) error {
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var existing []models.ServerMod
 		if err := tx.Where("server_id = ?", serverID).Find(&existing).Error; err != nil {
 			return fmt.Errorf("load mods: %w", err)
@@ -187,7 +199,11 @@ func (s *Service) Reorder(serverID, userID uint, workshopIDs []string) error {
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+
+	return syncGameModIds(serverID)
 }
 
 // Search proxies Workshop search.
@@ -246,4 +262,33 @@ func renumber(tx *gorm.DB, serverID uint) error {
 
 func isDuplicate(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "unique")
+}
+
+// syncGameModIds writes the enabled mods, in load order, into the server's
+// GameModIds field.
+//
+// This is the step that actually makes mods take effect. The game image installs
+// Workshop mods itself from the GameModIds environment variable
+// (start_server.sh: steamcmd +workshop_download_item 346110 <id>), so the mod
+// list has to reach that field. Nothing else consumes the server_mods table.
+//
+// Note it does NOT go on the command line as -mods=: that is an ASA/CurseForge
+// flag which ASE ignores (docs/wiki.md:358).
+//
+// Installation is gated on a first-startup flag inside the container, so a
+// changed mod set only takes effect when the container is recreated. Callers
+// surface that to the user.
+func syncGameModIds(serverID uint) error {
+	ids, err := ActiveModIDs(serverID)
+	if err != nil {
+		return err
+	}
+
+	joined := strings.Join(ids, ",")
+	if err := database.DB.Model(&models.Server{}).
+		Where("id = ?", serverID).
+		Update("game_mod_ids", joined).Error; err != nil {
+		return fmt.Errorf("update server mod ids: %w", err)
+	}
+	return nil
 }

@@ -51,6 +51,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ fil
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('content-type') || 'application/octet-stream',
+        'Content-Length': response.headers.get('content-length') ?? '',
         'Content-Disposition':
           response.headers.get('content-disposition') || contentDisposition(filename),
       },

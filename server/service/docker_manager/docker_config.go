@@ -2,6 +2,8 @@ package docker_manager
 
 import (
 	"archive/tar"
+	"ark-server-commander/database"
+	"ark-server-commander/models"
 	"ark-server-commander/utils"
 	"bytes"
 	"context"
@@ -111,6 +113,22 @@ func (dm *DockerManager) ReadConfigFile(serverID uint, fileName string) (string,
 // : Error
 func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string) error {
 	volumeName := utils.GetServerVolumeName(serverID)
+
+	// SessionName is not passed on the command line (the image expands
+	// SERVER_ARGS unquoted, so a space truncates it and drops later query
+	// parameters), which makes this file the authoritative source for the name
+	// shown in the Steam browser. Force it to match the server record here, at
+	// the single point every config write funnels through, so a rename cannot
+	// leave the INI stale.
+	if fileName == utils.GameUserSettingsFileName {
+		var server models.Server
+		if err := database.DB.Where("id = ?", serverID).First(&server).Error; err == nil {
+			content = utils.EnsureSessionName(content, server.SessionName)
+		} else {
+			utils.Warn("could not load server to sync SessionName into config",
+				zap.Uint("server_id", serverID), zap.Error(err))
+		}
+	}
 	alpineImage := "alpine:latest"
 
 	// AlpineYesNo
