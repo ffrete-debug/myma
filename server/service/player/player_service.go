@@ -116,48 +116,67 @@ func (s *PlayerService) GetPlayersHistory(userID uint, serverID string) ([]model
 // records. Exported so the metrics service can reuse it for population counts
 // without duplicating the parsing rules.
 //
-// ARK RCON returns output in a line-based format like:
-//  1. "PlayerName" (<steamid>) - Duration: 1h 23m 45s
+// ARK is not consistent across versions/forks. Both of these are seen:
 //
-// or similar variations with different delimiters.
+//  0. PlayerName, 76561198000000000
+//  1. "PlayerName" [76561198000000000] (charid) - Duration: 1h 23m
+//
+// and an empty server answers with a prose line such as "No Players Connected".
+//
+// A line is only accepted as a player if it carries at least one positive
+// signal: a 17-digit SteamID64, a "N." list index, or a quoted name. Without
+// that check the prose empty-server reply was parsed as a player named
+// "No Players Connected", so an empty server reported one player online.
 func ParseListPlayersOutput(output string) []models.OnlinePlayer {
 	var players []models.OnlinePlayer
 
-	lines := strings.Split(output, "\n")
-	steamIDRe := regexp.MustCompile(`\[(\d{17})\]`)
+	steamIDRe := regexp.MustCompile(`(\d{17})`)
 	charIDRe := regexp.MustCompile(`\(([^)]+)\)`)
 	nameRe := regexp.MustCompile(`"([^"]+)"`)
+	indexRe := regexp.MustCompile(`^(\d+)[.)]\s*`)
 
-	for _, line := range lines {
+	for _, line := range strings.Split(output, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" {
+		if line == "" || isNoPlayersLine(line) {
 			continue
 		}
 
-		// Try to extract name (quoted or unquoted)
-		name := ""
-		if m := nameRe.FindStringSubmatch(line); m != nil {
-			name = m[1]
-		} else {
-			// Fallback: take text before bracket or dash
-			parts := strings.Split(line, "[")
-			if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
-				name = strings.TrimSpace(parts[0])
-			}
-		}
-
-		// Try to extract SteamID
 		steamID := ""
 		if m := steamIDRe.FindStringSubmatch(line); m != nil {
 			steamID = m[1]
 		}
 
-		// Try to extract CharacterID (from parens)
+		indexed := indexRe.MatchString(line)
+		quoted := nameRe.MatchString(line)
+		// A player line carries at least one positive signal: a SteamID, a "N."
+		// list index, or a quoted name. Prose such as "No Players Connected"
+		// has none of the three, and used to be parsed as a player.
+		if steamID == "" && !indexed && !quoted {
+			continue
+		}
+
+		body := indexRe.ReplaceAllString(line, "")
+
+		name := ""
+		if m := nameRe.FindStringSubmatch(body); m != nil {
+			name = m[1]
+		} else if steamID != "" {
+			// "Name, <id>" or "Name [<id>]": the name is whatever precedes the
+			// id, minus the separator.
+			if idx := strings.Index(body, steamID); idx > 0 {
+				name = strings.TrimRight(strings.TrimSpace(body[:idx]), ",[ \t")
+				name = strings.TrimSpace(name)
+			}
+		} else {
+			name = strings.TrimSpace(strings.Split(body, ",")[0])
+		}
+
 		charID := ""
-		if m := charIDRe.FindStringSubmatch(line); m != nil {
+		if m := charIDRe.FindStringSubmatch(body); m != nil {
 			charID = m[1]
 		}
 
+		// An indexed line with neither a name nor an id carries no information.
 		if name == "" && steamID == "" {
 			continue
 		}
@@ -170,6 +189,24 @@ func ParseListPlayersOutput(output string) []models.OnlinePlayer {
 	}
 
 	return players
+}
+
+// noPlayersMarkers are the prose replies ARK gives for an empty server. They
+// vary by version, so match on substrings rather than exact strings.
+var noPlayersMarkers = []string{
+	"no players connected",
+	"no players online",
+	"there are no players",
+}
+
+func isNoPlayersLine(line string) bool {
+	lower := strings.ToLower(line)
+	for _, m := range noPlayersMarkers {
+		if strings.Contains(lower, m) {
+			return true
+		}
+	}
+	return false
 }
 
 // StoreDBPlayers persists a batch of player records for a server (used by the RCON polling service).

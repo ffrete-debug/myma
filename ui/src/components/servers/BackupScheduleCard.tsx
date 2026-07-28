@@ -22,9 +22,10 @@ interface BackupSchedule {
 
 interface CloudStatus {
   configured: boolean;
-  bucket: string;
-  endpoint: string;
-  prefix: string;
+  /** s3 | dropbox | gdrive | webdav, or "" when disabled. */
+  provider: string;
+  /** Non-secret description of the destination; never contains credentials. */
+  destination: string;
 }
 
 function errorMessage(e: unknown, fallback: string): string {
@@ -161,7 +162,7 @@ export function BackupScheduleCard({ serverId }: { serverId: string }) {
           )}
           {cloud?.configured && (
             <p className="text-xs text-muted-foreground">
-              {t('cloudTarget', { bucket: cloud.bucket, endpoint: cloud.endpoint })}
+              {t('cloudTarget', { provider: cloud.provider, destination: cloud.destination })}
             </p>
           )}
         </div>

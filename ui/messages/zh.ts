@@ -1078,7 +1078,7 @@ BabyImprintAmountMultiplier=1.0`
     keepZeroHint: '填 0 表示保留全部备份。',
     uploadToCloud: '将每次备份上传到对象存储',
     cloudNotConfigured: '服务器未配置对象存储。',
-    cloudTarget: '上传至 {endpoint} 的 {bucket}',
+    cloudTarget: '通过 {provider} 上传至 {destination}',
     lastRun: '上次运行 {time} \u2014 {status}',
     nextRun: '下次运行 {time}',
     saveSchedule: '保存计划',

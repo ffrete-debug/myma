@@ -97,9 +97,9 @@ func UpsertBackupSchedule(c *gin.Context) {
 
 	// Cloud upload cannot be enabled without somewhere to upload to; failing
 	// here is clearer than accepting the setting and failing silently at 3am.
-	if req.UploadToCloud && !backupservice.CloudConfig().Valid() {
+	if req.UploadToCloud && !backupservice.CloudConfigured() {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "object storage is not configured (set S3_ENDPOINT, S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY)",
+			"error": "cloud backup is not configured (set BACKUP_PROVIDER and its credentials)",
 		})
 		return
 	}
@@ -180,16 +180,14 @@ func UploadBackupToCloud(c *gin.Context) {
 // @Produce json
 // @Router /backups/cloud-status [get]
 func GetCloudStorageStatus(c *gin.Context) {
-	cfg := backupservice.CloudConfig()
-	// Credentials are deliberately not echoed back — only whether they are set,
-	// plus the non-secret destination so an operator can confirm the target.
+	// Credentials are deliberately not echoed back — only whether a destination
+	// is usable, which provider it is, and a non-secret description of it.
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Operation successful",
 		"data": gin.H{
-			"configured": cfg.Valid(),
-			"bucket":     cfg.Bucket,
-			"endpoint":   cfg.Endpoint,
-			"prefix":     cfg.Prefix,
+			"configured":  backupservice.CloudConfigured(),
+			"provider":    backupservice.CloudProviderName(),
+			"destination": backupservice.CloudDestination(),
 		},
 	})
 }

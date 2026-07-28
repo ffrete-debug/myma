@@ -198,11 +198,15 @@ func (s *Scheduler) prune(sched *models.BackupSchedule) {
 	}
 }
 
-// UploadBackupToCloud mirrors a completed local archive to object storage.
+// UploadBackupToCloud mirrors a completed local archive to the configured
+// cloud destination.
 func UploadBackupToCloud(filename string) error {
-	cfg := CloudConfig()
-	if !cfg.Valid() {
-		return fmt.Errorf("object storage is not configured")
+	provider, err := CloudProvider()
+	if err != nil {
+		return err
+	}
+	if provider == nil || !provider.Configured() {
+		return fmt.Errorf("cloud backup is not configured")
 	}
 
 	path := filepath.Join(BackupDir, filename)
@@ -217,16 +221,74 @@ func UploadBackupToCloud(filename string) error {
 		return fmt.Errorf("stat backup: %w", err)
 	}
 
-	client := storage.NewClient(cfg)
-	key := client.ObjectKey(filename)
-
-	if err := client.Upload(key, f, info.Size(), "application/gzip"); err != nil {
+	if err := provider.Upload(filename, f, info.Size(), "application/gzip"); err != nil {
 		return err
 	}
 
-	utils.Info("backup uploaded to object storage",
-		zap.String("key", key), zap.Int64("bytes", info.Size()))
+	utils.Info("backup uploaded to cloud storage",
+		zap.String("provider", provider.Name()),
+		zap.String("file", filename),
+		zap.Int64("bytes", info.Size()))
 	return nil
+}
+
+// CloudProvider builds the configured destination, or nil when cloud upload is
+// disabled. An unrecognised BACKUP_PROVIDER is an error rather than a silent
+// fallback: an operator who mistyped it should be told, not left believing
+// backups are being uploaded.
+func CloudProvider() (storage.Provider, error) {
+	kind, err := storage.ParseKind(config.BackupProvider)
+	if err != nil {
+		return nil, err
+	}
+	if kind == storage.KindNone {
+		return nil, nil
+	}
+	return storage.New(cloudSettings(kind)), nil
+}
+
+// CloudConfigured reports whether a destination is usable, for the status
+// endpoint and the schedule validation.
+func CloudConfigured() bool {
+	p, err := CloudProvider()
+	return err == nil && p != nil && p.Configured()
+}
+
+// CloudDestination is a non-secret description of where uploads go.
+func CloudDestination() string {
+	p, err := CloudProvider()
+	if err != nil || p == nil {
+		return ""
+	}
+	return p.Destination()
+}
+
+// CloudProviderName is the selected provider's name, or "" when disabled.
+func CloudProviderName() string {
+	p, err := CloudProvider()
+	if err != nil || p == nil {
+		return ""
+	}
+	return p.Name()
+}
+
+func cloudSettings(kind storage.Kind) storage.Settings {
+	return storage.Settings{
+		Kind:                kind,
+		S3:                  CloudConfig(),
+		DropboxAccessToken:  config.DropboxAccessToken,
+		DropboxRefreshToken: config.DropboxRefreshToken,
+		DropboxAppKey:       config.DropboxAppKey,
+		DropboxAppSecret:    config.DropboxAppSecret,
+		DropboxPath:         config.DropboxPath,
+		GDriveClientID:      config.GDriveClientID,
+		GDriveClientSecret:  config.GDriveClientSecret,
+		GDriveRefreshToken:  config.GDriveRefreshToken,
+		GDriveFolderID:      config.GDriveFolderID,
+		WebDAVURL:           config.WebDAVURL,
+		WebDAVUsername:      config.WebDAVUsername,
+		WebDAVPassword:      config.WebDAVPassword,
+	}
 }
 
 // CloudConfig builds the storage config from the process configuration.

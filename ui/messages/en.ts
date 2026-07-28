@@ -1078,7 +1078,7 @@ BabyImprintAmountMultiplier=1.0`
     keepZeroHint: '0 keeps every backup.',
     uploadToCloud: 'Upload each backup to object storage',
     cloudNotConfigured: 'Object storage is not configured on the server.',
-    cloudTarget: 'Uploading to {bucket} at {endpoint}',
+    cloudTarget: 'Uploading to {destination} via {provider}',
     lastRun: 'Last run {time} \u2014 {status}',
     nextRun: 'Next run {time}',
     saveSchedule: 'Save schedule',
