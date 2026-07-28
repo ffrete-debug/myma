@@ -95,7 +95,7 @@ func (tw *timeoutWriter) claimTimeout() bool {
 		return false
 	}
 	tw.timedOut = true
-	return !tw.hijacked && !tw.ResponseWriter.Written()
+	return !tw.hijacked && !tw.Written()
 }
 
 // Timeout sets a per-request timeout via context.
@@ -142,7 +142,7 @@ func Timeout(timeout time.Duration) gin.HandlerFunc {
 				// Content-Length is set so the client sees a complete response
 				// and can stop reading immediately, even though this connection
 				// is not released until the handler unwinds below.
-				header := tw.ResponseWriter.Header()
+				header := tw.Header()
 				header.Set("Content-Type", "application/json; charset=utf-8")
 				header.Set("Content-Length", strconv.Itoa(len(timeoutBody)))
 				tw.ResponseWriter.WriteHeader(http.StatusGatewayTimeout)

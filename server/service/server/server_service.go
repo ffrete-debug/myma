@@ -49,8 +49,9 @@ func (s *ServerService) broadcastStatus(serverID uint, status string) {
 
 // getUserMutex User，UserServers
 func (s *ServerService) getUserMutex(userID uint) *sync.Mutex {
-	mu, _ := s.userMutexes.LoadOrStore(userID, &sync.Mutex{})
-	return mu.(*sync.Mutex)
+	v, _ := s.userMutexes.LoadOrStore(userID, &sync.Mutex{})
+	mu, _ := v.(*sync.Mutex)
+	return mu
 }
 
 // checkPortConflict
@@ -308,7 +309,7 @@ func (s *ServerService) CreateServer(userID uint, req models.ServerRequest) (*mo
 
 	//
 	if err := tx.Commit().Error; err != nil {
-		dockerManager.RemoveVolume(server.ID)
+		_ = dockerManager.RemoveVolume(server.ID)
 		return nil, fmt.Errorf(" : %w", err)
 	}
 

@@ -24,7 +24,7 @@ func (dm *DockerManager) CreateVolume(serverID uint) (string, error) {
 	// CreatePlugins
 	if err := dm.CreateSingleVolume(pluginsVolumeName); err != nil {
 		// PluginsVolume creation failed，Create
-		dm.RemoveVolume(serverID)
+		_ = dm.RemoveVolume(serverID)
 		return "", fmt.Errorf("CreatePlugins : %v", err)
 	}
 

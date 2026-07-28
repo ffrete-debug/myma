@@ -189,7 +189,12 @@ func UploadFile(c *gin.Context) {
 			src.Close()
 			continue
 		}
-		io.Copy(tw, src)
+		if _, err := io.Copy(tw, src); err != nil {
+			utils.Error("copy upload into tar failed", zap.String("file", name), zap.Error(err))
+			tw.Close()
+			src.Close()
+			continue
+		}
 		tw.Close()
 		src.Close()
 
@@ -400,7 +405,10 @@ func ReadFile(c *gin.Context) {
 	}
 
 	var buf bytes.Buffer
-	io.Copy(&buf, tarReader)
+	if _, err := io.Copy(&buf, tarReader); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "read file failed"})
+		return
+	}
 	c.String(http.StatusOK, buf.String())
 }
 
@@ -454,7 +462,10 @@ func WriteFile(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "tar error"})
 		return
 	}
-	tw.Write([]byte(req.Content))
+	if _, err := tw.Write([]byte(req.Content)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "tar error"})
+		return
+	}
 	tw.Close()
 
 	if err := dm.WriteFileToVolume(volumeName, mount, dest, &buf); err != nil {
@@ -506,7 +517,7 @@ func UnzipFile(c *gin.Context) {
 
 	// Remove the zip file after extraction
 	rmCmd := []string{"rm", "-f", fullPath}
-	dm.RunCommandInVolume(volumeName, mount, rmCmd)
+	_, _ = dm.RunCommandInVolume(volumeName, mount, rmCmd)
 
 	c.JSON(http.StatusOK, gin.H{"message": "extracted"})
 }
@@ -562,7 +573,7 @@ func ZipDownload(c *gin.Context) {
 	reader, err := dm.ReadFileFromVolume(volumeName, mount, tempZip)
 	if err != nil {
 		utils.Error("read temp zip failed", zap.Error(err))
-		dm.RunCommandInVolume(volumeName, mount, []string{"rm", "-f", tempZip})
+		_, _ = dm.RunCommandInVolume(volumeName, mount, []string{"rm", "-f", tempZip})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "read zip failed"})
 		return
 	}
@@ -570,17 +581,19 @@ func ZipDownload(c *gin.Context) {
 
 	tarReader := tar.NewReader(reader)
 	if _, err := tarReader.Next(); err != nil {
-		dm.RunCommandInVolume(volumeName, mount, []string{"rm", "-f", tempZip})
+		_, _ = dm.RunCommandInVolume(volumeName, mount, []string{"rm", "-f", tempZip})
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "zip not found in tar"})
 		return
 	}
 
 	// Clean up temp zip
-	dm.RunCommandInVolume(volumeName, mount, []string{"rm", "-f", tempZip})
+	_, _ = dm.RunCommandInVolume(volumeName, mount, []string{"rm", "-f", tempZip})
 
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, zipName))
 	c.Header("Content-Type", "application/zip")
-	io.Copy(c.Writer, tarReader)
+	if _, err := io.Copy(c.Writer, tarReader); err != nil {
+		utils.Error("stream download to client failed", zap.Error(err))
+	}
 }
 
 func DownloadFile(c *gin.Context) {
@@ -629,5 +642,7 @@ func DownloadFile(c *gin.Context) {
 	fileName := filepath.Base(cleaned)
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Header("Content-Type", "application/octet-stream")
-	io.Copy(c.Writer, tarReader)
+	if _, err := io.Copy(c.Writer, tarReader); err != nil {
+		utils.Error("stream download to client failed", zap.Error(err))
+	}
 }

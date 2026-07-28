@@ -16,7 +16,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Prefer Authorization header (standard for REST requests)
 		if authHeader := c.GetHeader("Authorization"); authHeader != "" {
 			parts := strings.SplitN(authHeader, " ", 2)
-			if !(len(parts) == 2 && parts[0] == "Bearer") {
+			if len(parts) != 2 || parts[0] != "Bearer" {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization token format"})
 				c.Abort()
 				return

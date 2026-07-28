@@ -331,8 +331,9 @@ func (dm *DockerManager) StopContainer(containerName string) error {
 // containerName:
 // : Error
 func (dm *DockerManager) RemoveContainer(containerName string) error {
-	// Stop
-	dm.StopContainer(containerName)
+	// Stop first; a failure here is non-fatal because the forced remove below
+	// tears the container down regardless.
+	_ = dm.StopContainer(containerName)
 
 	// Delete
 	utils.Infof(" Delete : %s", containerName)

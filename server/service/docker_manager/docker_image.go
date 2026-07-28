@@ -207,11 +207,6 @@ func (dm *DockerManager) PullImageWithProgress(imageName string) error {
 					}
 
 					state.mu.Unlock()
-
-					//
-					if strings.Contains(progressInfo.Status, "Downloading") || strings.Contains(progressInfo.Status, "Extracting") {
-						// （）
-					}
 				}
 			}
 		}

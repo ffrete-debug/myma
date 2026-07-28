@@ -102,7 +102,7 @@ func main() {
 	if err != nil {
 		utils.Fatal("Failed to get Docker manager", zap.Error(err))
 	}
-	defer docker_manager.CloseDockerManager()
+	defer func() { _ = docker_manager.CloseDockerManager() }()
 
 	// Create Gin instance
 	r := gin.New() // custom middleware, no defaults
