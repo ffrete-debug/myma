@@ -16,6 +16,7 @@ import (
 	arkDocker "ark-server-commander/service/docker_manager"
 	arkServer "ark-server-commander/service/server"
 	"ark-server-commander/utils"
+	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
 )
@@ -267,10 +268,46 @@ func restoreBackupAsync(backup models.Backup, server models.Server) {
 	defer func() { _ = archive.Close() }()
 
 	// 2. Remove existing volume
-	if err := dm.RemoveSingleVolume(volumeName); err != nil {
+	// The container must go BEFORE the volume: Docker refuses to remove a volume
+	// that any container still references, even a stopped one. Restoring onto a
+	// server that had been started previously failed with
+	//   remove volume: volume is in use - [<container id>]
+	// A server that was never started simply has no container, which is not an
+	// error - the removal is only a prerequisite for recreating it.
+	containerName := utils.GetServerContainerName(server.ID)
+	exists, existsErr := dm.ContainerExists(containerName)
+	if existsErr != nil {
+		utils.Warn("restore: could not check for an existing container",
+			zap.String("container", containerName), zap.Error(existsErr))
+	}
+	if exists {
+		if err := dm.RemoveContainer(containerName); err != nil {
+			database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
+				"status": "failed",
+				"error":  "remove container: " + err.Error(),
+			})
+			return
+		}
+	}
+
+	// Docker releases a volume asynchronously: RemoveContainer returns before the
+	// container is fully reaped, so an immediate volume removal can still fail
+	// with "volume is in use" naming a container that no longer exists. Retry
+	// briefly rather than failing a restore that is about to succeed.
+	var removeErr error
+	for attempt := 0; attempt < 10; attempt++ {
+		if removeErr = dm.RemoveSingleVolume(volumeName); removeErr == nil {
+			break
+		}
+		if !strings.Contains(removeErr.Error(), "volume is in use") {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	if removeErr != nil {
 		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
 			"status": "failed",
-			"error":  "remove volume: " + err.Error(),
+			"error":  "remove volume: " + removeErr.Error(),
 		})
 		return
 	}
@@ -294,15 +331,6 @@ func restoreBackupAsync(backup models.Backup, server models.Server) {
 	}
 
 	// 5 & 6. Recreate container and start
-	containerName := utils.GetServerContainerName(server.ID)
-	if err := dm.RemoveContainer(containerName); err != nil {
-		database.DB.Model(&models.Backup{}).Where("id = ?", backup.ID).Updates(map[string]interface{}{
-			"status": "failed",
-			"error":  "remove container: " + err.Error(),
-		})
-		return
-	}
-
 	_, err = dm.CreateContainer(
 		server.ID,
 		server.Identifier,
