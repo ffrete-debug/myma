@@ -289,7 +289,7 @@ func Logout(c *gin.Context) {
 	}
 
 	parts := strings.SplitN(authHeader, " ", 2)
-	if !(len(parts) == 2 && parts[0] == "Bearer") {
+	if len(parts) != 2 || parts[0] != "Bearer" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": " Error"})
 		return
 	}

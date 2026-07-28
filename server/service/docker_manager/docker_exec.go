@@ -51,7 +51,7 @@ func (dm *DockerManager) runTempContainer(cmd []string, binds []string) (string,
 		return "", fmt.Errorf("container create: %v", err)
 	}
 	cid := resp.ID
-	defer dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true})
+	defer func() { _ = dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true}) }()
 
 	if err := dm.client.ContainerStart(dm.ctx, cid, container.StartOptions{}); err != nil {
 		return "", fmt.Errorf("container start: %v", err)
@@ -70,7 +70,9 @@ func (dm *DockerManager) runTempContainer(cmd []string, binds []string) (string,
 	}
 	defer out.Close()
 	var buf bytes.Buffer
-	stdcopy.StdCopy(&buf, &buf, out)
+	if _, err := stdcopy.StdCopy(&buf, &buf, out); err != nil {
+		return "", fmt.Errorf("read command output: %w", err)
+	}
 	return strings.TrimSpace(buf.String()), nil
 }
 
@@ -143,7 +145,7 @@ func (dm *DockerManager) ReadFileFromVolume(volumeName, volumeMount, filePath st
 		return nil, fmt.Errorf("container create: %v", err)
 	}
 	cid := resp.ID
-	defer dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true})
+	defer func() { _ = dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true}) }()
 
 	if err := dm.client.ContainerStart(dm.ctx, cid, container.StartOptions{}); err != nil {
 		return nil, fmt.Errorf("container start: %v", err)
@@ -173,7 +175,7 @@ func (dm *DockerManager) WriteFileToVolume(volumeName, volumeMount, destPath str
 		return fmt.Errorf("container create: %v", err)
 	}
 	cid := resp.ID
-	defer dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true})
+	defer func() { _ = dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true}) }()
 
 	if err := dm.client.ContainerStart(dm.ctx, cid, container.StartOptions{}); err != nil {
 		return fmt.Errorf("container start: %v", err)
@@ -188,7 +190,7 @@ func (dm *DockerManager) WriteFileToVolume(volumeName, volumeMount, destPath str
 	}
 	execResp, execErr := dm.client.ContainerExecCreate(dm.ctx, cid, execCfg)
 	if execErr == nil {
-		dm.client.ContainerExecStart(dm.ctx, execResp.ID, container.ExecStartOptions{})
+		_ = dm.client.ContainerExecStart(dm.ctx, execResp.ID, container.ExecStartOptions{})
 	}
 
 	utils.Info("writing file to volume", zap.String("file", destPath))
@@ -230,7 +232,7 @@ func (dm *DockerManager) BackupVolume(volumeName, backupDir, filename string) er
 		return fmt.Errorf("container create: %v", err)
 	}
 	cid := resp.ID
-	defer dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true})
+	defer func() { _ = dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true}) }()
 
 	if err := dm.client.ContainerStart(dm.ctx, cid, container.StartOptions{}); err != nil {
 		return fmt.Errorf("container start: %v", err)
@@ -277,7 +279,7 @@ func (dm *DockerManager) RestoreVolume(volumeName, backupDir, filename string) e
 		return fmt.Errorf("container create: %v", err)
 	}
 	cid := resp.ID
-	defer dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true})
+	defer func() { _ = dm.client.ContainerRemove(dm.ctx, cid, container.RemoveOptions{Force: true}) }()
 
 	if err := dm.client.ContainerStart(dm.ctx, cid, container.StartOptions{}); err != nil {
 		return fmt.Errorf("container start: %v", err)
