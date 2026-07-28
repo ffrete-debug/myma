@@ -285,6 +285,7 @@ export default {
       unknown: '未知',
       startingEllipsis: '启动中...',
       stoppingEllipsis: '停止中...',
+      plugins: '插件',
       unknownStatus: '未知状态',
       cannotStartImageNotReady: '镜像未就绪，无法启动',
       rconInfo: 'RCON信息',

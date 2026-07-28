@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"ark-server-commander/config"
 	"ark-server-commander/database"
 	"ark-server-commander/models"
 	"ark-server-commander/service/rcon"
@@ -37,7 +38,7 @@ func (s *PlayerService) GetPlayers(userID uint, serverID string) (models.PlayerL
 	}
 
 	// Use RCON to get the player list from the running server
-	output, err := rcon.ExecuteCommand("localhost", server.RCONPort, server.AdminPassword, "listplayers")
+	output, err := rcon.ExecuteCommand(config.RCONHost, server.RCONPort, server.AdminPassword, "listplayers")
 	if err != nil {
 		return models.PlayerListResponse{}, fmt.Errorf("rcon listplayers failed: %w", err)
 	}

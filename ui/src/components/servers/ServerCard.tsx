@@ -13,8 +13,9 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Play, Square, Loader2, Info, Edit, Trash2, Wifi, RefreshCw, Map, Terminal,
+  Play, Square, Loader2, Info, Edit, Trash2, Wifi, RefreshCw, Map, Terminal, Puzzle,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface ServerCardProps {
   server: Server;
@@ -35,6 +36,7 @@ export function ServerCard({
   server, canStartServer, onStart, onStop, onRestart, onEdit, onDelete, onViewLogs, onViewDetail, mapClickable, selected, onToggleSelect,
 }: ServerCardProps) {
   const t = useTranslations('servers');
+  const router = useRouter();
 
   useWebSocket(server.id, (msg) => {
     if (msg.type === 'update_status' && msg.data?.status) {
@@ -57,8 +59,23 @@ export function ServerCard({
     }
   };
 
-  const iconBtn = (icon: React.ReactNode, onClick?: () => void, className = '', disabled = false) => (
-    <Button variant="ghost" size="sm" className={`h-8 w-8 p-0 ${className}`} onClick={onClick} disabled={disabled}>
+  const iconBtn = (
+    icon: React.ReactNode,
+    onClick?: () => void,
+    className = '',
+    disabled = false,
+    label?: string,
+  ) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className={`h-8 w-8 p-0 ${className}`}
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+    >
       {icon}
     </Button>
   );
@@ -132,6 +149,13 @@ export function ServerCard({
         )}
         {server.status === 'running' && iconBtn(<RefreshCw className="h-4 w-4" />, () => onRestart(server), 'text-orange-400 hover:text-orange-300 hover:bg-orange-950/40')}
         {onViewDetail && iconBtn(<Terminal className="h-4 w-4" />, () => onViewDetail(server), 'text-purple-400 hover:text-purple-300 hover:bg-purple-950/40')}
+        {iconBtn(
+          <Puzzle className="h-4 w-4" />,
+          () => router.push(`/plugins?server_id=${server.id}`),
+          'text-amber-400 hover:text-amber-300 hover:bg-amber-950/40',
+          false,
+          t('card.plugins'),
+        )}
         {iconBtn(<Edit className="h-4 w-4" />, () => onEdit(server), 'text-blue-400 hover:text-blue-300 hover:bg-blue-950/40')}
         <Popover>
           <PopoverTrigger asChild>

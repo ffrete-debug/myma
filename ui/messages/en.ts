@@ -285,6 +285,7 @@ export default {
       unknown: 'Unknown',
       startingEllipsis: 'Starting...',
       stoppingEllipsis: 'Stopping...',
+      plugins: 'Plugins',
       unknownStatus: 'Unknown Status',
       cannotStartImageNotReady: 'Image not ready, cannot start',
       rconInfo: 'RCON Info',

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"ark-server-commander/config"
 	"ark-server-commander/database"
 	"ark-server-commander/models"
 	"ark-server-commander/service/docker_manager"
@@ -458,7 +459,7 @@ func (s *ServerService) ExecuteRCONCommand(userID uint, serverID string, command
 		return "", fmt.Errorf("Server not found")
 	}
 
-	output, err := rcon.ExecuteCommand("localhost", server.RCONPort, server.AdminPassword, command)
+	output, err := rcon.ExecuteCommand(config.RCONHost, server.RCONPort, server.AdminPassword, command)
 	if err != nil {
 		return "", fmt.Errorf("RCON command failed: %w", err)
 	}
