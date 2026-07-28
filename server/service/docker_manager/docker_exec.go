@@ -3,11 +3,14 @@ package docker_manager
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"fmt"
+	"github.com/docker/docker/api/types/image"
 	"io"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -30,14 +33,38 @@ func ShellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'"'"'`) + "'"
 }
 
+// ensureAlpine makes the helper image available, pulling it if necessary.
+//
+// This image is an internal implementation detail - it is used to read and write
+// config files and to build backup archives - so requiring the operator to have
+// pulled it by hand is not reasonable. It previously returned an error when the
+// image was absent, which made server creation fail on a fresh install with a
+// message that did not say what to do about it.
 func (dm *DockerManager) ensureAlpine() error {
 	exists, err := dm.ImageExists("alpine:latest")
 	if err != nil {
 		return fmt.Errorf("check alpine image failed: %v", err)
 	}
-	if !exists {
-		return fmt.Errorf("alpine:latest image not found")
+	if exists {
+		return nil
 	}
+
+	utils.Info("helper image alpine:latest is missing; pulling it")
+
+	ctx, cancel := context.WithTimeout(dm.ctx, 5*time.Minute)
+	defer cancel()
+
+	reader, err := dm.client.ImagePull(ctx, "alpine:latest", image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("pull alpine:latest: %w", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	// The pull only completes once the response body has been consumed.
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		return fmt.Errorf("pull alpine:latest: %w", err)
+	}
+
 	return nil
 }
 
