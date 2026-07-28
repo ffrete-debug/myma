@@ -73,6 +73,7 @@ export default function ProtectedLayout({
                 {navLink('/servers', t('servers'), pathname.startsWith('/servers'))}
                 {navLink('/players', t('players'), pathname.startsWith('/players'))}
                 {navLink('/plugins', t('plugins'), pathname.startsWith('/plugins'))}
+                {navLink('/metrics', t('metrics'), pathname.startsWith('/metrics'))}
                 {navLink('/audit-logs', t('auditLogs'), pathname.startsWith('/audit-logs'))}
               </nav>
             </div>

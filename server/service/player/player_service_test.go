@@ -8,7 +8,7 @@ import (
 
 func TestParseListPlayersOutput_SinglePlayer(t *testing.T) {
 	output := `"Player1" [12345678901234567] (char-abc)`
-	players := parseListPlayersOutput(output)
+	players := ParseListPlayersOutput(output)
 	if len(players) != 1 {
 		t.Fatalf("expected 1 player, got %d", len(players))
 	}
@@ -25,7 +25,7 @@ func TestParseListPlayersOutput_SinglePlayer(t *testing.T) {
 
 func TestParseListPlayersOutput_MultiplePlayers(t *testing.T) {
 	output := `"Alice" [11111111111111111]` + "\n" + `"Bob" [22222222222222222]`
-	players := parseListPlayersOutput(output)
+	players := ParseListPlayersOutput(output)
 	if len(players) != 2 {
 		t.Fatalf("expected 2 players, got %d", len(players))
 	}
@@ -39,7 +39,7 @@ func TestParseListPlayersOutput_MultiplePlayers(t *testing.T) {
 
 func TestParseListPlayersOutput_OfflineNoSteamID(t *testing.T) {
 	output := `"OrphanPlayer" - some other format`
-	players := parseListPlayersOutput(output)
+	players := ParseListPlayersOutput(output)
 	found := false
 	for _, p := range players {
 		if p.Name == "OrphanPlayer" {
@@ -55,14 +55,14 @@ func TestParseListPlayersOutput_OfflineNoSteamID(t *testing.T) {
 }
 
 func TestParseListPlayersOutput_Empty(t *testing.T) {
-	players := parseListPlayersOutput("")
+	players := ParseListPlayersOutput("")
 	if len(players) != 0 {
 		t.Errorf("expected 0 players for empty input, got %d", len(players))
 	}
 }
 
 func TestParseListPlayersOutput_WhitespaceOnly(t *testing.T) {
-	players := parseListPlayersOutput("  \n  \n")
+	players := ParseListPlayersOutput("  \n  \n")
 	if len(players) != 0 {
 		t.Errorf("expected 0 players for whitespace input, got %d", len(players))
 	}
@@ -71,7 +71,7 @@ func TestParseListPlayersOutput_WhitespaceOnly(t *testing.T) {
 func TestParseListPlayersOutput_BareName(t *testing.T) {
 	// Unquoted name before bracket
 	output := `SomePlayer [98765432109876543]`
-	players := parseListPlayersOutput(output)
+	players := ParseListPlayersOutput(output)
 	found := false
 	for _, p := range players {
 		if p.Name == "SomePlayer" {
@@ -88,7 +88,7 @@ func TestParseListPlayersOutput_BareName(t *testing.T) {
 
 func TestParseListPlayersOutput_IPAndDuration(t *testing.T) {
 	output := `"Player1" [12345678901234567] (char-abc) - 1h 23m - 192.168.1.1`
-	players := parseListPlayersOutput(output)
+	players := ParseListPlayersOutput(output)
 	if len(players) != 1 {
 		t.Fatalf("expected 1 player, got %d", len(players))
 	}
