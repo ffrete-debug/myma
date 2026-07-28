@@ -35,6 +35,31 @@ set -eu
 : "${HOSTNAME:=0.0.0.0}"
 export DB_PATH SERVER_PORT PORT HOSTNAME
 
+# --- privilege handling -----------------------------------------------------
+# Start as root so the bind-mounted volumes can be made writable by the app
+# user, then immediately drop privileges.
+#
+# This has to happen at RUNTIME on every start: a bind mount carries the HOST
+# directory's ownership (root:root, as Docker creates it), which masks any chown
+# done at build time. Relying on a build-time chown plus `USER` in the Dockerfile
+# left the app unable to create its SQLite database, and it crash-looped with
+#   unable to open database file: out of memory (14)
+APP_USER="${APP_USER:-arkcommander}"
+
+if [ "$(id -u)" = "0" ]; then
+    for dir in "$(dirname "$DB_PATH")" "${BACKUP_DIR:-/app/backups}"; do
+        mkdir -p "$dir" 2>/dev/null || true
+        if ! chown -R "$APP_USER:$APP_USER" "$dir" 2>/dev/null; then
+            echo "[entrypoint] warning: could not chown $dir; the app may not be able to write there"
+        fi
+    done
+
+    echo "[entrypoint] dropping privileges to $APP_USER"
+    exec su-exec "$APP_USER" "$0" "$@"
+fi
+# --- running as the app user from here ----------------------------------------
+
+
 # How long to let the children finish after SIGTERM. Keep this below the
 # stop_grace_period in docker-compose.yml (10s) so the SIGKILL fallback below
 # is ours and not Docker's.

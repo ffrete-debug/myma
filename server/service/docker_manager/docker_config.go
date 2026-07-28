@@ -25,13 +25,8 @@ func (dm *DockerManager) ReadConfigFile(serverID uint, fileName string) (string,
 	alpineImage := "alpine:latest"
 
 	// AlpineYesNo
-	exists, err := dm.ImageExists(alpineImage)
-	if err != nil {
-		return "", fmt.Errorf(" Alpine : %v", err)
-	}
-
-	if !exists {
-		return "", fmt.Errorf("Alpine ， Start Success ")
+	if err := dm.ensureAlpine(); err != nil {
+		return "", err
 	}
 
 	// （ Config/WindowsServer ）
@@ -132,13 +127,8 @@ func (dm *DockerManager) WriteConfigFile(serverID uint, fileName, content string
 	alpineImage := "alpine:latest"
 
 	// AlpineYesNo
-	exists, err := dm.ImageExists(alpineImage)
-	if err != nil {
-		return fmt.Errorf(" Alpine : %v", err)
-	}
-
-	if !exists {
-		return fmt.Errorf("Alpine ， Start Success ")
+	if err := dm.ensureAlpine(); err != nil {
+		return err
 	}
 
 	// （ Config/WindowsServer ）

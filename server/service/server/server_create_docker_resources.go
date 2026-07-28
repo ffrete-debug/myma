@@ -50,7 +50,12 @@ func (s *ServerService) createDockerResources(userID uint, server *models.Server
 		}
 		gameUserSettings = req.GameUserSettings
 	} else {
-		gameUserSettings = utils.GetDefaultGameUserSettings(server.Identifier, server.Map, 70)
+		// Seed the template from the session name and the configured player
+		// cap, not the identifier and a hardcoded 70. SessionName is what the
+		// Steam browser shows, and it is not passed on the command line (the
+		// image expands SERVER_ARGS unquoted, so a space would truncate it),
+		// which makes this file the only place it comes from.
+		gameUserSettings = utils.GetDefaultGameUserSettings(server.SessionName, server.Map, server.MaxPlayers)
 	}
 
 	if req.GameIni != "" {

@@ -73,7 +73,9 @@ WORKDIR /app
 # PID 1, reaps orphaned processes and forwards signals to entrypoint.sh (see
 # ENTRYPOINT). busybox already supplies the wget used by the compose
 # healthcheck, so nothing else is needed.
-RUN apk add --no-cache nodejs tini
+# su-exec drops privileges after the entrypoint has fixed ownership on the
+# bind-mounted volumes, which it can only do as root.
+RUN apk add --no-cache nodejs tini su-exec
 
 # The app drives the host Docker daemon through /var/run/docker.sock, which is
 # group-owned by the host's "docker" group. That GID differs per host, so the
@@ -112,7 +114,16 @@ ENV HOSTNAME=0.0.0.0
 # NEXT_PUBLIC_API_BASE is intentionally NOT set here - see stage 2. A runtime
 # ENV for a NEXT_PUBLIC_* variable is a silent no-op; use --build-arg.
 
-USER arkcommander
+# Deliberately NOT `USER arkcommander`.
+#
+# The entrypoint starts as root, chowns the bind-mounted /data and /app/backups
+# to the app user, and only then drops to arkcommander via su-exec. Setting USER
+# here instead looks safer but is broken: a bind mount replaces whatever the
+# image had at that path, so the build-time chown above is masked by the host
+# directory's ownership (root:root, as Docker creates it). The app then cannot
+# create its SQLite database and crash-loops with
+#   unable to open database file: out of memory (14)
+# The process still ends up running as arkcommander - see entrypoint.sh.
 
 # tini is PID 1 so signals are forwarded and zombies are reaped; entrypoint.sh
 # supervises the two long-lived processes. The previous
