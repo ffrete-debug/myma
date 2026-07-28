@@ -1054,6 +1054,27 @@ BabyImprintAmountMultiplier=1.0`
   },
 
   // Logs de auditoria
+  backups: {
+    scheduleTitle: 'Backups automáticos',
+    scheduleHint: 'Execute backups periodicamente e, se quiser, envie-os para fora do host.',
+    on: 'Ativo',
+    enableAutomatic: 'Ativar backups automáticos',
+    everyHours: 'A cada (horas)',
+    keepLast: 'Manter os últimos',
+    keepZeroHint: '0 mantém todos os backups.',
+    uploadToCloud: 'Enviar cada backup para o armazenamento de objetos',
+    cloudNotConfigured: 'O armazenamento de objetos não está configurado no servidor.',
+    cloudTarget: 'Enviando para {bucket} em {endpoint}',
+    lastRun: 'Última execução {time} \u2014 {status}',
+    nextRun: 'Próxima execução {time}',
+    saveSchedule: 'Salvar agendamento',
+    saved: 'Salvo',
+    loadFailed: 'Não foi possível carregar o agendamento',
+    saveFailed: 'Não foi possível salvar o agendamento',
+    uploadNow: 'Enviar para a nuvem',
+    uploadFailed: 'Falha no envio',
+    uploaded: 'Enviado',
+  },
   mods: {
     title: 'Gerenciamento de mods',
     subtitle: 'Explore a Oficina Steam do ARK e gerencie os mods de cada servidor.',

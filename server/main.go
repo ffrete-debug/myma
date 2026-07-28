@@ -5,6 +5,7 @@ import (
 	"ark-server-commander/database"
 	"ark-server-commander/middleware"
 	"ark-server-commander/routes"
+	backupservice "ark-server-commander/service/backup"
 	"ark-server-commander/service/docker_manager"
 	"ark-server-commander/service/update"
 	"ark-server-commander/utils"
@@ -80,6 +81,13 @@ func main() {
 	// Periodically sweep expired JWT blacklist entries so the in-memory map
 	// cannot grow unbounded over the lifetime of the process
 	utils.StartBlacklistCleanup(time.Hour)
+
+	// Automated backups. Runs due schedules serially in one goroutine: taring a
+	// game volume is disk-heavy, and several at once would degrade the very
+	// servers the backups protect.
+	backupScheduler := backupservice.NewScheduler(backupservice.NewBackupService())
+	backupScheduler.Start()
+	defer backupScheduler.Stop()
 
 	// Initialize update monitoring hub
 	updateHub := websocket.NewHub()
@@ -244,6 +252,10 @@ func main() {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		// Stop scheduling new backups before draining requests, so a fresh
+		// archive cannot start while the process is on its way down.
+		backupScheduler.Stop()
+
 		if err := srv.Shutdown(ctx); err != nil {
 			utils.Error("Graceful shutdown timed out, forcing close", zap.Error(err))
 		}

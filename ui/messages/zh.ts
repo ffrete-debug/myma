@@ -1054,6 +1054,27 @@ BabyImprintAmountMultiplier=1.0`
   },
 
   // 审计日志
+  backups: {
+    scheduleTitle: '自动备份',
+    scheduleHint: '按计划执行备份，并可选择上传到异地存储。',
+    on: '已开启',
+    enableAutomatic: '启用自动备份',
+    everyHours: '间隔（小时）',
+    keepLast: '保留最近',
+    keepZeroHint: '填 0 表示保留全部备份。',
+    uploadToCloud: '将每次备份上传到对象存储',
+    cloudNotConfigured: '服务器未配置对象存储。',
+    cloudTarget: '上传至 {endpoint} 的 {bucket}',
+    lastRun: '上次运行 {time} \u2014 {status}',
+    nextRun: '下次运行 {time}',
+    saveSchedule: '保存计划',
+    saved: '已保存',
+    loadFailed: '无法加载备份计划',
+    saveFailed: '无法保存备份计划',
+    uploadNow: '上传到云端',
+    uploadFailed: '上传失败',
+    uploaded: '已上传',
+  },
   mods: {
     title: '模组管理',
     subtitle: '浏览 ARK 创意工坊并管理各服务器的模组。',

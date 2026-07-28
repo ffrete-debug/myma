@@ -1054,6 +1054,27 @@ BabyImprintAmountMultiplier=1.0`
   },
 
   // Audit logs
+  backups: {
+    scheduleTitle: 'Automated backups',
+    scheduleHint: 'Run backups on a schedule and optionally copy them off-host.',
+    on: 'On',
+    enableAutomatic: 'Enable automated backups',
+    everyHours: 'Every (hours)',
+    keepLast: 'Keep last',
+    keepZeroHint: '0 keeps every backup.',
+    uploadToCloud: 'Upload each backup to object storage',
+    cloudNotConfigured: 'Object storage is not configured on the server.',
+    cloudTarget: 'Uploading to {bucket} at {endpoint}',
+    lastRun: 'Last run {time} \u2014 {status}',
+    nextRun: 'Next run {time}',
+    saveSchedule: 'Save schedule',
+    saved: 'Saved',
+    loadFailed: 'Could not load the backup schedule',
+    saveFailed: 'Could not save the backup schedule',
+    uploadNow: 'Upload to cloud',
+    uploadFailed: 'Upload failed',
+    uploaded: 'Uploaded',
+  },
   mods: {
     title: 'Mod management',
     subtitle: 'Browse the ARK Steam Workshop and manage each server\u2019s mods.',

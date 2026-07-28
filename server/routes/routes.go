@@ -85,6 +85,10 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 
 				// Per-server Workshop mods (load order matters: later mods
 				// override earlier ones)
+				// Automated backup schedule
+				serverRoutes.GET("/:id/backup-schedule", servers.GetBackupSchedule)
+				serverRoutes.PUT("/:id/backup-schedule", servers.UpsertBackupSchedule)
+
 				serverRoutes.GET("/:id/mods", mods.ListServerMods)
 				serverRoutes.POST("/:id/mods", mods.AddServerMod)
 				serverRoutes.PUT("/:id/mods/order", mods.ReorderServerMods)
@@ -113,6 +117,9 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 				backupRoutes.DELETE("/:id", servers.DeleteBackup)
 				backupRoutes.GET("/download/:filename", servers.DownloadBackup)
 				backupRoutes.POST("/restore", servers.RestoreBackup)
+				// Off-host copies
+				backupRoutes.GET("/cloud-status", servers.GetCloudStorageStatus)
+				backupRoutes.POST("/:id/upload", servers.UploadBackupToCloud)
 			}
 
 			// Player Management

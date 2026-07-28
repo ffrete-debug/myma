@@ -25,6 +25,18 @@ var (
 	// Workshop ID needs no key; only the search endpoint does. Empty means the
 	// mod browser offers add-by-ID but reports search as unconfigured.
 	SteamAPIKey = ""
+
+	// S3-compatible object storage for automated off-host backups. Empty
+	// values mean cloud upload is simply unavailable; local backups still work.
+	S3Endpoint  = ""
+	S3Region    = "us-east-1"
+	S3Bucket    = ""
+	S3AccessKey = ""
+	S3SecretKey = ""
+	S3Prefix    = ""
+	// S3PathStyle is required by MinIO and most self-hosted gateways, which do
+	// not implement virtual-host bucket addressing.
+	S3PathStyle = false
 )
 
 // dockerHostGateway is the alias Docker resolves to the host when the container
@@ -82,6 +94,16 @@ func InitConfig() error {
 	}
 
 	SteamAPIKey = os.Getenv("STEAM_API_KEY")
+
+	S3Endpoint = os.Getenv("S3_ENDPOINT")
+	S3Bucket = os.Getenv("S3_BUCKET")
+	S3AccessKey = os.Getenv("S3_ACCESS_KEY")
+	S3SecretKey = os.Getenv("S3_SECRET_KEY")
+	S3Prefix = os.Getenv("S3_PREFIX")
+	S3PathStyle = os.Getenv("S3_PATH_STYLE") == "true"
+	if region := os.Getenv("S3_REGION"); region != "" {
+		S3Region = region
+	}
 
 	if host := os.Getenv("RCON_HOST"); host != "" {
 		RCONHost = host
