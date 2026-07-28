@@ -1,6 +1,7 @@
 package docker_manager
 
 import (
+	"archive/tar"
 	"bytes"
 	"fmt"
 	"io"
@@ -201,31 +202,27 @@ func (dm *DockerManager) WriteFileToVolume(volumeName, volumeMount, destPath str
 	return nil
 }
 
-// BackupVolume creates a tar.gz archive of a Docker volume.
-// volumeName: the Docker volume name
-// backupDir: the host path to the backup directory (also mounted as /backup in container)
-// filename: the name of the backup file to create inside /backup
-func (dm *DockerManager) BackupVolume(volumeName, backupDir, filename string) error {
+// BackupVolume archives a Docker volume and streams the result to dst.
+//
+// It deliberately does NOT bind-mount a host directory for the output. A bind
+// mount source is resolved by the Docker daemon on the HOST, while this process
+// computes its paths inside its own container - so the archive landed on the
+// host and the app could never find it again. Downloads 404'd and cloud uploads
+// failed, while the backup was still recorded as successful.
+//
+// Instead the helper container writes the archive to its own filesystem and we
+// copy it out over the Docker API, which involves no host paths at all.
+func (dm *DockerManager) BackupVolume(volumeName, filename string, dst io.Writer) error {
 	if err := dm.ensureAlpine(); err != nil {
 		return err
 	}
 
-	cmd := []string{"sh", "-c", fmt.Sprintf(
-		"tar czf %s -C /data .",
-		ShellQuote("/backup/"+filename),
-	)}
-	binds := []string{
-		fmt.Sprintf("%s:/data", volumeName),
-		fmt.Sprintf("%s:/backup", backupDir),
-	}
+	const archivePath = "/tmp/backup.tar.gz"
 
-	cc := &container.Config{
-		Image: "alpine:latest",
-		Cmd:   cmd,
-	}
-	hc := &container.HostConfig{
-		Binds: binds,
-	}
+	cmd := []string{"sh", "-c", fmt.Sprintf("tar czf %s -C /data .", ShellQuote(archivePath))}
+
+	cc := &container.Config{Image: "alpine:latest", Cmd: cmd}
+	hc := &container.HostConfig{Binds: []string{fmt.Sprintf("%s:/data", volumeName)}}
 
 	resp, err := dm.client.ContainerCreate(dm.ctx, cc, hc, nil, nil, "")
 	if err != nil {
@@ -245,34 +242,55 @@ func (dm *DockerManager) BackupVolume(volumeName, backupDir, filename string) er
 	case <-waitCh:
 	}
 
-	return nil
+	// CopyFromContainer returns a tar stream wrapping the file, so unwrap the
+	// single entry rather than writing the outer tar to disk.
+	reader, _, err := dm.client.CopyFromContainer(dm.ctx, cid, archivePath)
+	if err != nil {
+		return fmt.Errorf("copy archive out of helper container: %w", err)
+	}
+	defer func() { _ = reader.Close() }()
+
+	tr := tar.NewReader(reader)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return fmt.Errorf("helper container produced no archive")
+		}
+		if err != nil {
+			return fmt.Errorf("read archive stream: %w", err)
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		if _, err := io.Copy(dst, tr); err != nil {
+			return fmt.Errorf("write backup archive: %w", err)
+		}
+		return nil
+	}
 }
 
 // RestoreVolume extracts a tar.gz backup into a Docker volume.
 // volumeName: the Docker volume name
 // backupDir: the host path to the backup directory (mounted as /backup)
-// filename: the backup filename inside /backup
-func (dm *DockerManager) RestoreVolume(volumeName, backupDir, filename string) error {
+// RestoreVolume extracts a backup archive into a Docker volume.
+//
+// The archive is streamed IN over the Docker API rather than bind-mounting a
+// host directory, for the same reason BackupVolume streams out: a bind source is
+// resolved on the host, not inside this container, so the path would not exist.
+func (dm *DockerManager) RestoreVolume(volumeName, filename string, src io.Reader) error {
 	if err := dm.ensureAlpine(); err != nil {
 		return err
 	}
 
-	cmd := []string{"sh", "-c", fmt.Sprintf(
-		"tar xzf %s -C /data",
-		ShellQuote("/backup/"+filename),
-	)}
-	binds := []string{
-		fmt.Sprintf("%s:/data", volumeName),
-		fmt.Sprintf("%s:/backup", backupDir),
-	}
+	const stagedPath = "/tmp/restore.tar.gz"
 
+	// Sleep, so the container stays alive long enough to receive the upload
+	// before the extraction command runs.
 	cc := &container.Config{
 		Image: "alpine:latest",
-		Cmd:   cmd,
+		Cmd:   []string{"sh", "-c", "sleep 3600"},
 	}
-	hc := &container.HostConfig{
-		Binds: binds,
-	}
+	hc := &container.HostConfig{Binds: []string{fmt.Sprintf("%s:/data", volumeName)}}
 
 	resp, err := dm.client.ContainerCreate(dm.ctx, cc, hc, nil, nil, "")
 	if err != nil {
@@ -285,11 +303,35 @@ func (dm *DockerManager) RestoreVolume(volumeName, backupDir, filename string) e
 		return fmt.Errorf("container start: %v", err)
 	}
 
-	waitCh, errCh := dm.client.ContainerWait(dm.ctx, cid, container.WaitConditionNotRunning)
-	select {
-	case e := <-errCh:
-		return fmt.Errorf("container wait: %v", e)
-	case <-waitCh:
+	// CopyToContainer takes a tar stream, so wrap the archive as a single entry.
+	buf, err := io.ReadAll(src)
+	if err != nil {
+		return fmt.Errorf("read backup archive: %w", err)
+	}
+
+	var tarBuf bytes.Buffer
+	tw := tar.NewWriter(&tarBuf)
+	if err := tw.WriteHeader(&tar.Header{
+		Name: "restore.tar.gz",
+		Mode: 0o600,
+		Size: int64(len(buf)),
+	}); err != nil {
+		return fmt.Errorf("build upload stream: %w", err)
+	}
+	if _, err := tw.Write(buf); err != nil {
+		return fmt.Errorf("build upload stream: %w", err)
+	}
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("build upload stream: %w", err)
+	}
+
+	if err := dm.client.CopyToContainer(dm.ctx, cid, "/tmp", &tarBuf, container.CopyToContainerOptions{}); err != nil {
+		return fmt.Errorf("upload archive to helper container: %w", err)
+	}
+
+	if err := dm.execInHelperContainer(dm.ctx, cid,
+		fmt.Sprintf("tar xzf %s -C /data", ShellQuote(stagedPath))); err != nil {
+		return fmt.Errorf("extract archive: %w", err)
 	}
 
 	return nil

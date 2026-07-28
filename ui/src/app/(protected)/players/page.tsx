@@ -6,6 +6,7 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 import { Users, RefreshCw, Loader2, Shield, Clock, MapPin, ChevronDown, ChevronUp, UserMinus, Ban, AlertTriangle } from 'lucide-react';
 import api from '@/lib/axios';
+import { useServers, serversActions } from '@/stores/servers';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -60,6 +61,23 @@ export default function PlayersPage() {
   const [playerAction, setPlayerAction] = useState<string | null>(null);
   const [confirmBan, setConfirmBan] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+
+  const servers = useServers();
+
+  useEffect(() => {
+    serversActions.fetchServers().catch(() => {});
+  }, []);
+
+  // Preselect the first server, or one passed as ?server_id=, so the page is
+  // usable without knowing any ids.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get('server_id');
+    if (raw && /^[0-9]+$/.test(raw)) {
+      setServerId(raw);
+      return;
+    }
+    if (!serverId && servers.length) setServerId(servers[0].id);
+  }, [servers, serverId]);
 
   // Kick/ban are sent as structured actions; the server builds the RCON
   // command from the validated steam id rather than trusting a string here.
@@ -166,13 +184,22 @@ export default function PlayersPage() {
               <label className="text-sm font-medium text-foreground mb-1 block">
                 {t('serverIdLabel')}
               </label>
-              <input
-                type="text"
+              {/* A dropdown of the user's servers, matching the mods and
+                  plugins pages. This used to be a free-text box that required
+                  knowing the numeric server id. */}
+              <select
                 value={serverId}
                 onChange={(e) => setServerId(e.target.value)}
-                placeholder={t('serverIdPlaceholder')}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              />
+                aria-label={t('serverIdLabel')}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">{t('selectServer')}</option>
+                {servers.map((srv) => (
+                  <option key={srv.id} value={srv.id}>
+                    {srv.session_name || srv.identifier}
+                  </option>
+                ))}
+              </select>
             </div>
             <Button onClick={handleRefresh} disabled={loading || !serverId.trim()}>
               {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}

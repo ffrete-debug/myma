@@ -13,7 +13,16 @@ import (
 	"ark-server-commander/utils"
 )
 
-const BackupDir = "backups"
+// BackupDir is where archives are stored, relative to the process working
+// directory unless BACKUP_DIR is set. Under Docker this should point at a
+// mounted volume, otherwise backups are lost when the container is replaced.
+var BackupDir = "backups"
+
+func init() {
+	if dir := os.Getenv("BACKUP_DIR"); dir != "" {
+		BackupDir = dir
+	}
+}
 
 type BackupService struct{}
 
@@ -109,11 +118,6 @@ func (s *BackupService) createBackupAsync(backupID uint, volumeName, filename st
 		return
 	}
 
-	backupDirAbs, err := filepath.Abs(BackupDir)
-	if err != nil {
-		backupDirAbs = BackupDir
-	}
-
 	dockerManager, err := docker_manager.GetDockerManager()
 	if err != nil {
 		database.DB.Model(&models.Backup{}).Where("id = ?", backupID).Updates(map[string]interface{}{
@@ -123,21 +127,48 @@ func (s *BackupService) createBackupAsync(backupID uint, volumeName, filename st
 		return
 	}
 
-	err = dockerManager.BackupVolume(volumeName, backupDirAbs, filename)
+	// The archive is streamed straight into the app's own filesystem. It used to
+	// be written through a Docker bind mount whose source the daemon resolved on
+	// the HOST, so the file landed somewhere this process could never read.
+	filePath := filepath.Join(BackupDir, filename)
+	out, err := os.Create(filePath)
 	if err != nil {
+		database.DB.Model(&models.Backup{}).Where("id = ?", backupID).Updates(map[string]interface{}{
+			"status": "failed",
+			"error":  fmt.Sprintf("create backup file: %v", err),
+		})
+		return
+	}
+
+	if err := dockerManager.BackupVolume(volumeName, filename, out); err != nil {
+		_ = out.Close()
+		_ = os.Remove(filePath) // no partial archives masquerading as backups
 		database.DB.Model(&models.Backup{}).Where("id = ?", backupID).Updates(map[string]interface{}{
 			"status": "failed",
 			"error":  err.Error(),
 		})
 		return
 	}
-
-	// Get file size
-	filePath := filepath.Join(backupDirAbs, filename)
-	info, err := os.Stat(filePath)
-	if err != nil {
+	if err := out.Close(); err != nil {
 		database.DB.Model(&models.Backup{}).Where("id = ?", backupID).Updates(map[string]interface{}{
-			"status":    "completed",
+			"status": "failed",
+			"error":  fmt.Sprintf("close backup file: %v", err),
+		})
+		return
+	}
+
+	// A missing or empty archive is a FAILED backup, not a successful one.
+	// Recording it as completed with size 0 is what hid the bind-mount bug: the
+	// UI listed backups that did not exist.
+	info, err := os.Stat(filePath)
+	if err != nil || info.Size() == 0 {
+		reason := "backup archive is empty"
+		if err != nil {
+			reason = fmt.Sprintf("backup archive missing: %v", err)
+		}
+		database.DB.Model(&models.Backup{}).Where("id = ?", backupID).Updates(map[string]interface{}{
+			"status":    "failed",
+			"error":     reason,
 			"file_size": 0,
 		})
 		return

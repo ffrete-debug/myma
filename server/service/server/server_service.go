@@ -649,6 +649,34 @@ func (s *ServerService) DeleteServer(userID uint, serverID string) error {
 		}
 	}
 
+	// Remove the data and plugins volumes.
+	//
+	// Previously they were left behind on every delete, so each removed server
+	// orphaned its volumes permanently. Worse, CreateSingleVolume adopts an
+	// existing volume by name instead of failing, so if a server id was ever
+	// reused - which happens when the bind-mounted ./data database is reset
+	// while the Docker volumes survive - the new server silently inherited the
+	// old server's plugins.
+	//
+	// Failures are warnings, not errors: the DB row and container are already
+	// gone, so returning an error here would report a failed delete for a
+	// server that no longer exists.
+	if err := dockerManager.RemoveVolume(server.ID); err != nil {
+		utils.Warn("could not remove server volumes; they may need manual cleanup",
+			zap.Uint("server_id", server.ID), zap.Error(err))
+	}
+
+	// Drop rows that reference the server. They are not reachable through any
+	// API once the server is gone, so leaving them would only accumulate.
+	for _, related := range []interface{}{
+		&models.ServerMod{}, &models.BackupSchedule{}, &models.Player{},
+	} {
+		if err := database.DB.Where("server_id = ?", server.ID).Delete(related).Error; err != nil {
+			utils.Warn("could not clean up related rows",
+				zap.Uint("server_id", server.ID), zap.Error(err))
+		}
+	}
+
 	return nil
 }
 

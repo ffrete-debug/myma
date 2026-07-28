@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -102,17 +103,24 @@ func (sa *ServerArgs) GenerateArgsStringWithMods(server Server, modIDs []string)
 	queryParams = append(queryParams, fmt.Sprintf("?RCONPort=%d", server.RCONPort))
 	queryParams = append(queryParams, fmt.Sprintf("?ServerAdminPassword=%s", server.AdminPassword))
 
-	// Servers（SessionName）
-	if server.SessionName != "" {
-		queryParams = append(queryParams, fmt.Sprintf("?SessionName=%s", server.SessionName))
-	}
+	// SessionName is deliberately NOT emitted here. The game image runs
+	//     SERVER_CMD="$PROTON run ShooterGameServer.exe ${SERVER_ARGS}"; $SERVER_CMD
+	// with SERVER_ARGS expanded UNQUOTED, so a session name containing a space
+	// word-splits the launch string: the name is truncated at the first space
+	// and every query parameter ordered after it is silently dropped.
+	// SessionName is written to GameUserSettings.ini [SessionSettings] instead,
+	// which has no quoting problem. See utils.GetDefaultGameUserSettings.
 
 	if server.GameModIds != "" {
 		queryParams = append(queryParams, fmt.Sprintf("?GameModIds=%s", server.GameModIds))
 	}
 
-	//
-	for key, value := range sa.QueryParams {
+	// Sorted: Go randomises map iteration, which made SERVER_ARGS differ on every
+	// call. That defeated the container drift check (it compared unequal strings
+	// and rebuilt the container on every start) and made which parameters
+	// survived a word-split non-deterministic.
+	for _, key := range sortedKeys(sa.QueryParams) {
+		value := sa.QueryParams[key]
 		// ，
 		if key == "listen" || key == "Port" || key == "QueryPort" || key == "MaxPlayers" ||
 			key == "RCONEnabled" || key == "RCONPort" || key == "ServerAdminPassword" || key == "GameModIds" {
@@ -127,8 +135,8 @@ func (sa *ServerArgs) GenerateArgsStringWithMods(server Server, modIDs []string)
 		queryParams = append(queryParams, fmt.Sprintf("?%s=%s", key, value))
 	}
 
-	//
-	for key, value := range sa.CommandLineArgs {
+	for _, key := range sortedAnyKeys(sa.CommandLineArgs) {
+		value := sa.CommandLineArgs[key]
 		switch v := value.(type) {
 		case bool:
 			if v {
@@ -154,11 +162,14 @@ func (sa *ServerArgs) GenerateArgsStringWithMods(server Server, modIDs []string)
 		commandLineParams = append(commandLineParams, fmt.Sprintf("-clusterid=%s", server.ClusterID))
 	}
 
-	// Mods are appended before the user's custom args so an explicit -mods= in
-	// CustomArgs still wins, matching the "custom args override everything"
-	// behaviour the rest of this builder follows.
-	if len(modIDs) > 0 {
-		commandLineParams = append(commandLineParams, fmt.Sprintf("-mods=%s", strings.Join(modIDs, ",")))
+	// NOTE: no -mods= flag. That is an ASA/CurseForge option and ASE ignores it
+	// (docs/wiki.md:358, "inASE = No"). This image installs Steam Workshop mods
+	// itself from the GameModIds environment variable, so the mod list travels
+	// via server.GameModIds and the ?GameModIds= query parameter above.
+	// modIDs is retained in the signature so callers can keep passing the
+	// resolved list; it is used only for the query parameter fallback below.
+	if len(modIDs) > 0 && server.GameModIds == "" {
+		queryParams = append(queryParams, fmt.Sprintf("?GameModIds=%s", strings.Join(modIDs, ",")))
 	}
 
 	//
@@ -177,4 +188,24 @@ func (sa *ServerArgs) GenerateArgsStringWithMods(server Server, modIDs []string)
 	}
 
 	return result
+}
+
+// sortedKeys returns map keys in a stable order.
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// sortedAnyKeys is sortedKeys for the heterogeneous command-line map.
+func sortedAnyKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
