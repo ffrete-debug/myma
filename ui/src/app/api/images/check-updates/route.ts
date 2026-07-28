@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
-import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
 
 const getApiBase = () => process.env.NEXT_PUBLIC_API_BASE;
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth-token');
+  // Authenticate from the explicit Authorization header rather than the ambient
+  // auth-token cookie: a cookie-authenticated route is reachable cross-site.
+  const headersList = await headers();
+  const authorization = headersList.get('authorization');
 
-  if (!token) {
+  if (!authorization) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const config = {
-    headers: { Authorization: `Bearer ${token.value}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: authorization, 'Content-Type': 'application/json' },
   };
 
   try {

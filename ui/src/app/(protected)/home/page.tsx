@@ -1,11 +1,10 @@
 "use client";
 
 import { useTranslations } from 'next-intl';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Link } from '@/navigation';
 import { useAuthUser } from '@/stores/auth';
-import { useImageStatus, serversActions } from '@/stores/servers';
+import useServersStore, { useImageStatus, serversActions } from '@/stores/servers';
 import { ImageStatus } from '@/components/docker/ImageStatus';
 import { ImageUpdateConfirmModal } from '@/components/docker/ImageUpdateConfirmModal';
 import { useEffect, useRef, useCallback, useState } from 'react';
@@ -78,22 +77,25 @@ export default function HomePage() {
         } catch (error) { console.error('Failed to check updates:', error); }
     };
 
-    const startPolling = () => {
-        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    const stopPolling = useCallback(() => {
+        if (pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null; }
+    }, []);
+
+    const startPolling = useCallback(() => {
+        stopPolling();
         pollingIntervalRef.current = setInterval(async () => {
             await refreshImageStatus();
-            if (!imageStatus?.any_pulling) stopPolling();
+            // Read the freshly written value straight from the store: the
+            // `imageStatus` binding from this render is frozen in the closure
+            // and would never reflect the refresh above.
+            if (!useServersStore.getState().imageStatus?.any_pulling) stopPolling();
         }, 2000);
-    };
-
-    const stopPolling = () => {
-        if (pollingIntervalRef.current) { clearInterval(pollingIntervalRef.current); pollingIntervalRef.current = null; }
-    };
+    }, [refreshImageStatus, stopPolling]);
 
     useEffect(() => {
         refreshImageStatus();
         return () => stopPolling();
-    }, [refreshImageStatus]);
+    }, [refreshImageStatus, stopPolling]);
 
     const quickLinks = [
         { href: '/servers', icon: Server, label: t('serverManagement'), desc: t('serverManagementDesc'), color: 'blue' },

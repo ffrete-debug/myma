@@ -50,23 +50,68 @@ type imagePullState struct {
 	pulling      bool
 	currentLayer string
 	layers       map[string]*LayerStatus
+	pullers      int //
 	mu           sync.RWMutex
 }
 
 // Status（）
-var imagePullStates = &sync.Map{} // map[string]*imagePullState
+var (
+	imagePullMu     sync.Mutex
+	imagePullStates = make(map[string]*imagePullState)
+)
 
-func getImagePullState(imageName string) *imagePullState {
-	if v, ok := imagePullStates.Load(imageName); ok {
-		return v.(*imagePullState)
+// lookupImagePullState Status， nil
+// ，
+func lookupImagePullState(imageName string) *imagePullState {
+	imagePullMu.Lock()
+	defer imagePullMu.Unlock()
+	return imagePullStates[imageName]
+}
+
+// beginImagePull ， Status
+// Status，
+func beginImagePull(imageName string) *imagePullState {
+	imagePullMu.Lock()
+	defer imagePullMu.Unlock()
+
+	state, ok := imagePullStates[imageName]
+	if !ok {
+		state = &imagePullState{layers: make(map[string]*LayerStatus)}
+		imagePullStates[imageName] = state
 	}
-	state := &imagePullState{layers: make(map[string]*LayerStatus)}
-	imagePullStates.Store(imageName, state)
+
+	state.mu.Lock()
+	state.pullers++
+	if state.pullers == 1 {
+		state.pulling = true
+		state.currentLayer = ""
+		state.layers = make(map[string]*LayerStatus)
+	}
+	state.mu.Unlock()
+
 	return state
 }
 
-func cleanupImagePullState(imageName string) {
-	imagePullStates.Delete(imageName)
+// endImagePull ，Delete Status
+func endImagePull(imageName string, state *imagePullState) {
+	imagePullMu.Lock()
+	defer imagePullMu.Unlock()
+
+	state.mu.Lock()
+	if state.pullers > 0 {
+		state.pullers--
+	}
+	last := state.pullers == 0
+	if last {
+		state.pulling = false
+		state.currentLayer = ""
+		state.layers = make(map[string]*LayerStatus)
+	}
+	state.mu.Unlock()
+
+	if last && imagePullStates[imageName] == state {
+		delete(imagePullStates, imageName)
+	}
 }
 
 // PullImageWithProgress Docker
@@ -75,26 +120,17 @@ func cleanupImagePullState(imageName string) {
 func (dm *DockerManager) PullImageWithProgress(imageName string) error {
 	utils.Info("On Docker ", zap.String("image", imageName))
 
-	state := getImagePullState(imageName)
-	state.mu.Lock()
-	state.pulling = true
-	state.currentLayer = ""
-	state.layers = make(map[string]*LayerStatus)
-	state.mu.Unlock()
+	state := beginImagePull(imageName)
 
 	// Status
-	defer func() {
-		state := getImagePullState(imageName)
-		state.mu.Lock()
-		state.pulling = false
-		state.currentLayer = ""
-		state.layers = make(map[string]*LayerStatus)
-		state.mu.Unlock()
-		cleanupImagePullState(imageName)
-	}()
+	defer endImagePull(imageName, state)
+
+	// ，
+	ctx, cancel := dm.opCtx(dockerPullTimeout)
+	defer cancel()
 
 	//
-	reader, err := dm.client.ImagePull(dm.ctx, imageName, image.PullOptions{})
+	reader, err := dm.client.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf(" Docker : %v", err)
 	}
@@ -116,7 +152,6 @@ func (dm *DockerManager) PullImageWithProgress(imageName string) error {
 
 				var progressInfo ImagePullProgress
 				if err := json.Unmarshal([]byte(line), &progressInfo); err == nil {
-					state := getImagePullState(imageName)
 					state.mu.Lock()
 
 					//
@@ -236,7 +271,11 @@ func (dm *DockerManager) GetImageStatus(imageName string) *ImageStatus {
 	}
 
 	// YesNo
-	state := getImagePullState(imageName)
+	state := lookupImagePullState(imageName)
+	if state == nil {
+		return status
+	}
+
 	state.mu.RLock()
 	status.Pulling = state.pulling
 	if status.Pulling {
@@ -261,7 +300,10 @@ func (dm *DockerManager) GetImageStatus(imageName string) *ImageStatus {
 
 // IsImagePulling YesNo
 func IsImagePulling(imageName string) bool {
-	state := getImagePullState(imageName)
+	state := lookupImagePullState(imageName)
+	if state == nil {
+		return false
+	}
 	state.mu.RLock()
 	pulling := state.pulling
 	state.mu.RUnlock()
@@ -288,10 +330,7 @@ func (dm *DockerManager) WaitForImage(imageName string, timeout int) (bool, erro
 		}
 
 		// YesNo
-		state := getImagePullState(imageName)
-		state.mu.RLock()
-		pulling := state.pulling
-		state.mu.RUnlock()
+		pulling := IsImagePulling(imageName)
 		if pulling {
 			utils.Debug(" ， ", zap.String("image", imageName))
 		}

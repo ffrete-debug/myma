@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege: this workflow only needs to read the source it measures.
+# Codecov's PR comment is posted by the Codecov app, not by GITHUB_TOKEN, so
+# no write scope is required here.
+permissions:
+  contents: read
+
 jobs:
   coverage:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: server
@@ -17,10 +25,19 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.24'
+        cache: true
+        cache-dependency-path: server/go.sum
     - run: go test ./... -coverprofile=coverage.out -covermode=atomic
     - run: go tool cover -func=coverage.out
     - name: Upload to Codecov
-      uses: codecov/codecov-action@v5
+      # Pinned to a commit SHA: this action runs a downloaded uploader binary
+      # with access to the repo token.
+      uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
       with:
         files: server/coverage.out
+        # Keep false: a Codecov outage should not fail an otherwise good
+        # build. The coverage gate itself lives in /codecov.yml and is
+        # enforced by Codecov's own status checks.
         fail_ci_if_error: false
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

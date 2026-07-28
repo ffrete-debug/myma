@@ -9,6 +9,7 @@ import { Loader2, ArrowLeft, RefreshCw, Pause, Play, Trash2, Map } from 'lucide-
 import { serversActions } from '@/stores/servers';
 import { Server } from '@/stores/servers';
 import Cookies from 'js-cookie';
+import { buildWebSocketUrl } from '@/lib/ws-url';
 
 const MAX_LOG_CHARS = 500_000;
 const MAX_LOG_LINES = 10_000;
@@ -32,6 +33,7 @@ export default function ServerLogsPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const isClosingRef = useRef(false);
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -39,16 +41,21 @@ export default function ServerLogsPage() {
       const response = await fetch(`/api/servers/${serverId}/logs?tail=${tailLines}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (!response.ok) throw new Error('Failed to fetch logs');
+      if (!response.ok) throw new Error(`Log request failed with status ${response.status}`);
       const data = await response.json();
       setLogs(data.data || '');
       setError('');
     } catch {
-      setError('Failed to fetch logs');
+      setError(t('fetchLogsFailed'));
     } finally {
       setLoading(false);
     }
-  }, [serverId, tailLines]);
+  }, [serverId, tailLines, t]);
+
+  // Keep the polling fallback stable: the interval reads the latest fetcher
+  // through a ref instead of being torn down on every tail-size change.
+  const fetchLogsRef = useRef(fetchLogs);
+  fetchLogsRef.current = fetchLogs;
 
   const appendLogLine = useCallback((line: string) => {
     setLogs(prev => {
@@ -68,17 +75,22 @@ export default function ServerLogsPage() {
   }, []);
 
   const connectWS = useCallback(() => {
-    if (!autoRefresh) return;
+    if (!autoRefresh || isClosingRef.current) return;
     const token = Cookies.get('auth-token');
     if (!token) return;
 
-    const proto = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = typeof window !== 'undefined' ? window.location.host : '';
-    const url = `${proto}://${host}/api/ws/logs/${serverId}?token=${encodeURIComponent(token)}`;
+    // The log socket is served by the Go backend, not the Next server, so the
+    // URL has to be derived from the API base like the other WS call sites.
+    const url = buildWebSocketUrl(`/api/ws/logs/${serverId}`, token);
 
     const ws = new WebSocket(url);
     wsRef.current = ws;
-    setWsConnected(true);
+
+    ws.onopen = () => {
+      // Only now is the socket really live; the polling fallback keys off this.
+      setWsConnected(true);
+      reconnectAttemptsRef.current = 0;
+    };
 
     ws.onmessage = (event) => {
       if (typeof event.data === 'string') {
@@ -90,15 +102,16 @@ export default function ServerLogsPage() {
     ws.onclose = () => {
       wsRef.current = null;
       setWsConnected(false);
-      if (autoRefresh) {
-        // Exponential backoff capped at 30s.
-        const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30_000);
-        reconnectAttemptsRef.current++;
-        reconnectTimerRef.current = setTimeout(connectWS, delay);
-      }
+      // Never reconnect a socket we closed ourselves during cleanup.
+      if (isClosingRef.current || !autoRefresh) return;
+      // Exponential backoff capped at 30s.
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30_000);
+      reconnectAttemptsRef.current++;
+      reconnectTimerRef.current = setTimeout(connectWS, delay);
     };
 
     ws.onerror = () => {
+      setWsConnected(false);
       ws.close();
     };
   }, [serverId, autoRefresh, appendLogLine]);
@@ -108,9 +121,9 @@ export default function ServerLogsPage() {
       const srv = await serversActions.getServer(serverId);
       setServer(srv);
     } catch {
-      setError('Failed to get server info');
+      setError(t('loadServerInfoFailed'));
     }
-  }, [serverId]);
+  }, [serverId, t]);
 
   useEffect(() => {
     fetchServer();
@@ -123,29 +136,38 @@ export default function ServerLogsPage() {
 
   // WebSocket for live tailing (after initial load).
   useEffect(() => {
-    if (!loading && autoRefresh) {
-      connectWS();
-    }
+    if (loading || !autoRefresh) return;
+    isClosingRef.current = false;
+    connectWS();
     return () => {
+      // Flag the close as intentional *before* closing, otherwise the onclose
+      // handler fires after cleanup and schedules a reconnect for a dead page.
+      isClosingRef.current = true;
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
       }
+      setWsConnected(false);
     };
   }, [connectWS, loading, autoRefresh]);
 
   // Polling fallback for initial load and reconnection.
   useEffect(() => {
-    if (autoRefresh && !wsConnected) {
-      intervalRef.current = setInterval(fetchLogs, 3000);
-    }
+    if (!autoRefresh || wsConnected) return;
+    intervalRef.current = setInterval(() => {
+      void fetchLogsRef.current();
+    }, 3000);
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [autoRefresh, wsConnected, fetchLogs]);
+  }, [autoRefresh, wsConnected]);
 
   useEffect(() => {
     if (logEndRef.current) {

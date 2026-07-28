@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ServerParam, getServerParamsByCategory, CategoryKey } from '@/lib/ark-settings';
+import { ServerParam, getServerParamsByCategory, queryParams, CategoryKey } from '@/lib/ark-settings';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -11,6 +11,33 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trash2 } from 'lucide-react';
+
+// Which bucket a key belongs to is a property of the parameter schema, never of
+// whether the user happens to have set it yet. Query params are emitted by the
+// backend as `?Key=Value` (see server/models/server_args.go GenerateArgsString),
+// everything else is emitted as `-key`.
+// The reserved keys below are the ones the backend always injects itself from the
+// Server record; they are query params too, so classify them accordingly.
+const RESERVED_QUERY_PARAM_KEYS = [
+  'listen',
+  'Port',
+  'QueryPort',
+  'MaxPlayers',
+  'RCONEnabled',
+  'RCONPort',
+  'ServerAdminPassword',
+  'SessionName',
+  'GameModIds',
+] as const;
+
+const QUERY_PARAM_KEYS = new Set<string>([
+  ...Object.keys(queryParams),
+  ...RESERVED_QUERY_PARAM_KEYS,
+]);
+
+function getParamKind(key: string): 'query' | 'cmd' {
+  return QUERY_PARAM_KEYS.has(key) ? 'query' : 'cmd';
+}
 
 interface ServerArgsEditorProps {
   value: {
@@ -35,6 +62,23 @@ export function ServerArgsEditor({ value, onChange }: ServerArgsEditorProps) {
     command_line_args: {},
     custom_args: []
   };
+
+  // custom_args is a plain string[] with index-based removal, so the array index is
+  // not a stable identity: removing item i would shift every later item onto a reused
+  // DOM node and drag focus / IME composition along with it. Keep a parallel list of
+  // generated ids and mutate it in lockstep with the array.
+  const customArgIds = useRef<string[]>([]);
+  const customArgIdSeq = useRef(0);
+  const nextCustomArgId = () => `custom-arg-${customArgIdSeq.current++}`;
+
+  // Pad / trim for custom args that arrived from props rather than through addCustomArg.
+  if (customArgIds.current.length !== safeValue.custom_args.length) {
+    const ids = customArgIds.current.slice(0, safeValue.custom_args.length);
+    while (ids.length < safeValue.custom_args.length) {
+      ids.push(nextCustomArgId());
+    }
+    customArgIds.current = ids;
+  }
 
   // Get
   const availableCategories = Object.entries(paramCategories)
@@ -62,10 +106,12 @@ export function ServerArgsEditor({ value, onChange }: ServerArgsEditorProps) {
   };
 
   const addCustomArg = () => {
+    customArgIds.current = [...customArgIds.current, nextCustomArgId()];
     onChange({ ...safeValue, custom_args: [...safeValue.custom_args, ''] });
   };
 
   const removeCustomArg = (index: number) => {
+    customArgIds.current = customArgIds.current.filter((_, i) => i !== index);
     const newCustomArgs = safeValue.custom_args.filter((_, i) => i !== index);
     onChange({ ...safeValue, custom_args: newCustomArgs });
   };
@@ -186,8 +232,7 @@ export function ServerArgsEditor({ value, onChange }: ServerArgsEditorProps) {
               <CardContent className="pt-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {paramCategories[category].map(({ key, param }) => {
-                    const type = key in safeValue.query_params ? 'query' : 'cmd';
-                    return renderParam(type, key, param);
+                    return renderParam(getParamKind(key), key, param);
                   })}
                 </div>
               </CardContent>
@@ -201,18 +246,18 @@ export function ServerArgsEditor({ value, onChange }: ServerArgsEditorProps) {
               <div className="space-y-4">
                 <div className="space-y-2">
                   {safeValue.custom_args.map((arg, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input 
-                        value={arg} 
+                    <div key={customArgIds.current[index]} className="flex items-center gap-2">
+                      <Input
+                        value={arg}
                         onChange={(e) => handleCustomArgChange(index, e.target.value)}
                         placeholder={t('customArgPlaceholder')}
                       />
-                      <Button variant="ghost" size="icon" onClick={() => removeCustomArg(index)}>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => removeCustomArg(index)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
-                  <Button onClick={addCustomArg}>{t('addCustomArg')}</Button>
+                  <Button type="button" onClick={addCustomArg}>{t('addCustomArg')}</Button>
                 </div>
               </div>
             </CardContent>

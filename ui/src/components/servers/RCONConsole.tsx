@@ -8,6 +8,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { ChevronDown, ChevronUp, Terminal as TerminalIcon } from 'lucide-react';
 import { applyInputEvent, type InputBuffer } from '@/lib/rcon-input';
+import { buildWebSocketUrl } from '@/lib/ws-url';
 
 interface RCONConsoleProps {
   serverId: string;
@@ -18,6 +19,61 @@ type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 const PROMPT = '> ';
 
+// Reconnect backoff. A server that is down for maintenance used to be retried
+// every 1.5s for as long as the panel stayed open; now the delay doubles up to
+// a ceiling so the browser and the backend both stop being hammered.
+const RECONNECT_BASE_MS = 1500;
+const RECONNECT_MAX_MS = 30000;
+const RECONNECT_MAX_ATTEMPTS = 8;
+
+// Matches one ESC-introduced sequence:
+//   - CSI:                ESC [ <params> <intermediates> <final>
+//   - string sequences:   ESC ] / P / X / ^ / _ ... terminated by BEL or ST
+//   - short escapes:      ESC <single printable>
+const ANSI_SEQUENCE =
+  /\x1b(?:\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e]|[\]PX^_][\s\S]*?(?:\x07|\x1b\\|$)|[\x20-\x7e])/g;
+
+// SGR ("select graphic rendition" - colour, bold, reset) is the one escape
+// family that cannot move the cursor, repaint the screen or attach an OSC-8
+// hyperlink, so it is the only one allowed through.
+const SGR_SEQUENCE = /^\x1b\[[0-9;]*m$/;
+
+// C0 controls other than tab/newline/carriage-return, plus DEL and the whole C1
+// range (0x80-0x9f), which some terminals decode as single-byte equivalents of
+// the ESC sequences stripped above.
+const UNSAFE_CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/g;
+
+/**
+ * Neutralise terminal control sequences in RCON output before writing it.
+ *
+ * The output is attacker-influenceable (any player can put text into a game
+ * response), and the terminal runs with `allowProposedApi`. This is not DOM
+ * XSS - xterm renders to a canvas - but unfiltered escapes still let remote
+ * text reposition the cursor, erase or rewrite lines already on screen and
+ * emit OSC-8 hyperlinks, i.e. spoof console output the operator then trusts.
+ *
+ * The backend forwards raw RCON payloads verbatim (see
+ * `server/websocket/rcon_handler.go`) and adds no colouring of its own, but
+ * SGR is preserved anyway since it is inert.
+ */
+function sanitizeTerminalOutput(input: string): string {
+  let result = '';
+  let index = 0;
+
+  ANSI_SEQUENCE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = ANSI_SEQUENCE.exec(input)) !== null) {
+    result += input.slice(index, match.index).replace(UNSAFE_CONTROL_CHARS, '');
+    if (SGR_SEQUENCE.test(match[0])) {
+      result += match[0];
+    }
+    index = match.index + match[0].length;
+  }
+  result += input.slice(index).replace(UNSAFE_CONTROL_CHARS, '');
+
+  return result;
+}
+
 export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
   const t = useTranslations('servers.rcon');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -27,12 +83,22 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
   const inputBufferRef = useRef<string>('');
   const cursorPosRef = useRef<number>(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptsRef = useRef(0);
   const isClosingRef = useRef(false);
 
   const [collapsed, setCollapsed] = useState(true);
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
 
   const isServerReachable = serverStatus === 'running' || serverStatus === undefined;
+
+  // The terminal is created exactly once per expand and lives across renders,
+  // so anything it closes over is read through a ref. Keeping `t` out of the
+  // callback dependencies means a new translator identity cannot tear down a
+  // live session (and lets the effects below list honest dependencies).
+  const tRef = useRef(t);
+  tRef.current = t;
+  const isServerReachableRef = useRef(isServerReachable);
+  isServerReachableRef.current = isServerReachable;
 
   const writePrompt = useCallback((term: Terminal) => {
     term.write('\r\n' + PROMPT);
@@ -57,58 +123,98 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
 
   const connectWS = useCallback(() => {
     if (isClosingRef.current) return;
-    if (wsRef.current) {
-      wsRef.current.close();
+
+    // A pending reconnect is now superseded by this attempt.
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+
+    const previous = wsRef.current;
+    if (previous) {
+      // Detach the old socket before closing it. Its `onclose` fires
+      // asynchronously, i.e. after `wsRef.current` already points at the new
+      // socket, so leaving the handlers attached would let the dead socket null
+      // out the live reference and queue a second, duplicate connection.
+      previous.onopen = null;
+      previous.onmessage = null;
+      previous.onerror = null;
+      previous.onclose = null;
+      previous.close();
       wsRef.current = null;
     }
 
     const token = Cookies.get('auth-token');
     if (!token) {
       setConnectionState('disconnected');
-      termRef.current?.writeln('\r\n' + t('connectionError'));
+      termRef.current?.writeln('\r\n' + tRef.current('connectionError'));
       return;
     }
 
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8080/api';
-    const wsBase = apiBase.replace(/\/api$/, '').replace(/^https?:\/\//, (m) => m === 'https:' ? 'wss://' : 'ws://');
-    const url = `${wsBase}/api/ws/rcon/${serverId}?token=${encodeURIComponent(token)}`;
+    const url = buildWebSocketUrl(`/api/ws/rcon/${serverId}`, token);
     setConnectionState('connecting');
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
+    // Every handler bails out unless this socket is still the current one, so a
+    // socket that has been replaced can neither write to the terminal, move the
+    // connection state, clear the ref nor schedule a reconnect.
+    const isCurrent = () => wsRef.current === ws;
+
     ws.onopen = () => {
+      if (!isCurrent()) return;
+      reconnectAttemptsRef.current = 0;
       setConnectionState('connected');
-      termRef.current?.writeln('\r\n[' + new Date().toLocaleTimeString() + '] ' + t('connected'));
-      writePrompt(termRef.current!);
+      const term = termRef.current;
+      if (!term) return;
+      term.writeln('\r\n[' + new Date().toLocaleTimeString() + '] ' + tRef.current('connected'));
+      writePrompt(term);
     };
 
     ws.onmessage = (event) => {
+      if (!isCurrent()) return;
+      const term = termRef.current;
+      if (!term) return;
       if (typeof event.data !== 'string') {
-        termRef.current?.writeln('\r\n' + t('invalidResponse'));
-        writePrompt(termRef.current!);
+        term.writeln('\r\n' + tRef.current('invalidResponse'));
+        writePrompt(term);
         return;
       }
-      const text = event.data.replace(/\n/g, '\r\n');
-      termRef.current?.write('\r\n' + text);
-      writePrompt(termRef.current!);
+      const text = sanitizeTerminalOutput(event.data).replace(/\n/g, '\r\n');
+      term.write('\r\n' + text);
+      writePrompt(term);
     };
 
     ws.onerror = () => {
+      if (!isCurrent()) return;
       setConnectionState('error');
-      termRef.current?.writeln('\r\n' + t('connectionError'));
+      termRef.current?.writeln('\r\n' + tRef.current('connectionError'));
     };
 
     ws.onclose = () => {
+      if (!isCurrent()) return;
       wsRef.current = null;
       setConnectionState((prev) => (prev === 'connected' ? 'disconnected' : prev));
       if (isClosingRef.current) return;
-      // Light retry to survive transient network drops on first attempt.
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+
+      // Exponential backoff, capped in both delay and attempts, to survive
+      // transient network drops without retrying a dead server forever.
+      // Once the attempts are exhausted the panel stays in `error` until it is
+      // collapsed and re-expanded, rather than dialling a dead server forever.
+      const attempt = reconnectAttemptsRef.current;
+      if (attempt >= RECONNECT_MAX_ATTEMPTS) {
+        setConnectionState('error');
+        termRef.current?.writeln('\r\n' + tRef.current('connectionError'));
+        return;
+      }
+      reconnectAttemptsRef.current = attempt + 1;
+      const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
       reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
         if (!isClosingRef.current) connectWS();
-      }, 1500);
+      }, delay);
     };
-  }, [serverId, t, writePrompt]);
+  }, [serverId, writePrompt]);
 
   // Initialize terminal once when the panel is expanded.
   useEffect(() => {
@@ -116,6 +222,7 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
     const el = containerRef.current;
     if (!el) return;
     isClosingRef.current = false;
+    reconnectAttemptsRef.current = 0;
 
     const term = new Terminal({
       theme: { background: '#0b0e14', foreground: '#cdd6e0', cursor: '#cdd6e0' },
@@ -124,7 +231,10 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
       fontFamily: 'ui-monospace, Menlo, Monaco, "Cascadia Mono", "Courier New", monospace',
       scrollback: 1000,
       convertEol: true,
-      disableStdin: true,
+      // `disableStdin` must stay false: xterm drops every key event when stdin
+      // is disabled, so the `onData` handler below would never fire and the
+      // console would be unusable for typing commands.
+      disableStdin: false,
       allowProposedApi: true,
     });
     const fit = new FitAddon();
@@ -134,9 +244,9 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
     termRef.current = term;
     fitRef.current = fit;
 
-    term.writeln(t('connectingHint'));
-    if (!isServerReachable) {
-      term.writeln('\r\n' + t('serverOffline'));
+    term.writeln(tRef.current('connectingHint'));
+    if (!isServerReachableRef.current) {
+      term.writeln('\r\n' + tRef.current('serverOffline'));
       setConnectionState('disconnected');
     } else {
       connectWS();
@@ -189,10 +299,10 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
           try {
             wsRef.current.send(line)
           } catch {
-            tic.writeln(t('sendFailed'))
+            tic.writeln(tRef.current('sendFailed'))
           }
         } else {
-          tic.writeln(t('connectionError'))
+          tic.writeln(tRef.current('connectionError'))
           writePrompt(tic)
         }
       }
@@ -205,7 +315,11 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
       isClosingRef.current = true;
       window.removeEventListener('resize', handleResize);
       ro.disconnect();
-      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      reconnectAttemptsRef.current = 0;
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
@@ -216,17 +330,23 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
       inputBufferRef.current = '';
       cursorPosRef.current = 0;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collapsed]);
+  }, [collapsed, connectWS, writePrompt, refreshInputLine]);
 
-  // Reconnect when server becomes reachable after being offline.
+  // Reconnect when the server becomes reachable after being offline.
   useEffect(() => {
     if (collapsed) return;
-    if (serverStatus === 'running' && connectionState === 'disconnected' && wsRef.current === null) {
+    if (
+      serverStatus === 'running' &&
+      connectionState === 'disconnected' &&
+      wsRef.current === null &&
+      // Do not race the backoff timer: if a reconnect is already scheduled,
+      // let it run instead of dialling immediately.
+      reconnectTimerRef.current === null
+    ) {
+      reconnectAttemptsRef.current = 0;
       connectWS();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverStatus]);
+  }, [collapsed, connectionState, serverStatus, connectWS]);
 
   const dotColor =
     connectionState === 'connected' ? 'bg-emerald-500' :

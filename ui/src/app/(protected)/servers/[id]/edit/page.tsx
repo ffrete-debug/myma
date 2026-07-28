@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, useParams } from 'next/navigation';
 import { Server } from '@/stores/servers';
@@ -17,6 +17,9 @@ import { PresetSelector } from '@/components/servers/PresetSelector';
 import { ServerArgsEditor } from '@/components/servers/ServerArgsEditor';
 import { MapSelector } from '@/components/servers/MapSelector';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Derived from the editor itself so it keeps tracking that component's contract.
+type ServerArgsValue = NonNullable<React.ComponentProps<typeof ServerArgsEditor>['value']>;
 
 export default function ServerEditPage() {
   const tServers = useTranslations('servers');
@@ -35,6 +38,15 @@ export default function ServerEditPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  const serverArgs = useMemo<ServerArgsValue>(() => {
+    const raw = (formData.server_args ?? {}) as Partial<ServerArgsValue>;
+    return {
+      query_params: raw.query_params ?? {},
+      command_line_args: raw.command_line_args ?? {},
+      custom_args: raw.custom_args ?? [],
+    };
+  }, [formData.server_args]);
 
   useEffect(() => {
     const loadServer = async () => {
@@ -314,7 +326,10 @@ export default function ServerEditPage() {
                     <Upload className="h-3 w-3 mr-1" />{tServersEdit('importFile')}
                   </Button>
                 </div>
-                <GameIniEditor />
+                <GameIniEditor
+                  value={formData.game_ini}
+                  onChange={(v) => setFormData(p => ({ ...p, game_ini: v }))}
+                />
               </div>
             </TabsContent>
 
@@ -327,8 +342,7 @@ export default function ServerEditPage() {
                   <Upload className="h-3 w-3 mr-1" />{tServersEdit('importFile')}
                 </Button>
               </div>
-              {/* @ts-expect-error: Prop 'value' is not available on type 'IntrinsicAttributes' */}
-              <ServerArgsEditor value={formData.server_args} onChange={(v) => setFormData(p => ({ ...p, server_args: v }))} />
+              <ServerArgsEditor value={serverArgs} onChange={(v) => setFormData(p => ({ ...p, server_args: v }))} />
             </TabsContent>
           </Tabs>
 
