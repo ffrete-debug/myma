@@ -3,6 +3,7 @@ package docker_manager
 import (
 	"ark-server-commander/database"
 	"ark-server-commander/models"
+	"ark-server-commander/service/mods"
 	"ark-server-commander/utils"
 	"encoding/json"
 	"fmt"
@@ -72,7 +73,16 @@ func (dm *DockerManager) CreateContainerWithRollback(serverID uint, serverName s
 	} else {
 		serverArgs = models.FromServer(server)
 	}
-	argsString := serverArgs.GenerateArgsString(server)
+	// Enabled Workshop mods, in load order, so a (re)created container launches
+	// with the mods the user configured. A lookup failure must not block the
+	// server from starting, so it degrades to no mods and is logged.
+	modIDs, modErr := mods.ActiveModIDs(server.ID)
+	if modErr != nil {
+		utils.Warn("could not load active mods; starting without them",
+			zap.Uint("server_id", server.ID), zap.Error(modErr))
+		modIDs = nil
+	}
+	argsString := serverArgs.GenerateArgsStringWithMods(server, modIDs)
 
 	// 5:
 	envVars := []string{

@@ -20,6 +20,11 @@ var (
 	// the published port; on a bare-metal run the loopback address is correct.
 	// Override with RCON_HOST when the game servers live somewhere else.
 	RCONHost = "127.0.0.1"
+
+	// SteamAPIKey enables Steam Workshop *search*. Looking a mod up by its
+	// Workshop ID needs no key; only the search endpoint does. Empty means the
+	// mod browser offers add-by-ID but reports search as unconfigured.
+	SteamAPIKey = ""
 )
 
 // dockerHostGateway is the alias Docker resolves to the host when the container
@@ -75,6 +80,8 @@ func InitConfig() error {
 	if port := os.Getenv("SERVER_PORT"); port != "" {
 		ServerPort = port
 	}
+
+	SteamAPIKey = os.Getenv("STEAM_API_KEY")
 
 	if host := os.Getenv("RCON_HOST"); host != "" {
 		RCONHost = host

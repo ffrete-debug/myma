@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Play, Square, Loader2, Info, Edit, Trash2, Wifi, RefreshCw, Map, Terminal, Puzzle,
+  Play, Square, Loader2, Info, Edit, Trash2, Wifi, RefreshCw, Map, Terminal, Puzzle, Boxes,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -155,6 +155,13 @@ export function ServerCard({
           'text-amber-400 hover:text-amber-300 hover:bg-amber-950/40',
           false,
           t('card.plugins'),
+        )}
+        {iconBtn(
+          <Boxes className="h-4 w-4" />,
+          () => router.push(`/mods?server_id=${server.id}`),
+          'text-teal-400 hover:text-teal-300 hover:bg-teal-950/40',
+          false,
+          t('card.mods'),
         )}
         {iconBtn(<Edit className="h-4 w-4" />, () => onEdit(server), 'text-blue-400 hover:text-blue-300 hover:bg-blue-950/40')}
         <Popover>
