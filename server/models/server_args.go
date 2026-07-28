@@ -72,7 +72,21 @@ func FromServer(server Server) *ServerArgs {
 // GenerateArgsString Start
 // Servers：、Query Port、RCON Port、Password、Map、ID
 // Start：
+// GenerateArgsString builds the launch arguments with no mods attached.
 func (sa *ServerArgs) GenerateArgsString(server Server) string {
+	return sa.GenerateArgsStringWithMods(server, nil)
+}
+
+// GenerateArgsStringWithMods builds the launch arguments including the server's
+// enabled Steam Workshop mods, in load order.
+//
+// modIDs is passed in rather than looked up here because models must not depend
+// on the service layer. Callers that create or inspect a container resolve the
+// list first; callers that only need the base arguments pass nil.
+//
+// The IDs are validated at the service boundary (decimal only) — they are
+// interpolated into a launch string, so nothing else may reach this.
+func (sa *ServerArgs) GenerateArgsStringWithMods(server Server, modIDs []string) string {
 	var queryParams []string
 	var commandLineParams []string
 
@@ -138,6 +152,13 @@ func (sa *ServerArgs) GenerateArgsString(server Server) string {
 	// ID（ClusterID）
 	if server.ClusterID != "" {
 		commandLineParams = append(commandLineParams, fmt.Sprintf("-clusterid=%s", server.ClusterID))
+	}
+
+	// Mods are appended before the user's custom args so an explicit -mods= in
+	// CustomArgs still wins, matching the "custom args override everything"
+	// behaviour the rest of this builder follows.
+	if len(modIDs) > 0 {
+		commandLineParams = append(commandLineParams, fmt.Sprintf("-mods=%s", strings.Join(modIDs, ",")))
 	}
 
 	//

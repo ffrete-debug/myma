@@ -5,6 +5,7 @@ import (
 	"ark-server-commander/controllers/auth"
 	"ark-server-commander/controllers/images"
 	"ark-server-commander/controllers/metrics"
+	"ark-server-commander/controllers/mods"
 	"ark-server-commander/controllers/player"
 	"ark-server-commander/controllers/plugins"
 	"ark-server-commander/controllers/rcon"
@@ -81,6 +82,14 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			{
 				serverRoutes.GET("", servers.GetServers)
 				serverRoutes.POST("", servers.CreateServer)
+
+				// Per-server Workshop mods (load order matters: later mods
+				// override earlier ones)
+				serverRoutes.GET("/:id/mods", mods.ListServerMods)
+				serverRoutes.POST("/:id/mods", mods.AddServerMod)
+				serverRoutes.PUT("/:id/mods/order", mods.ReorderServerMods)
+				serverRoutes.DELETE("/:id/mods/:workshopId", mods.RemoveServerMod)
+				serverRoutes.PUT("/:id/mods/:workshopId/enabled", mods.ToggleServerMod)
 				serverRoutes.GET("/:id", servers.GetServer)
 				serverRoutes.PUT("/:id", servers.UpdateServer)
 				serverRoutes.DELETE("/:id", servers.DeleteServer)
@@ -142,6 +151,13 @@ func RegisterRoutes(r *gin.Engine, updateService *update.UpdateService, hub *web
 			// Audit logs
 			auditRoutes := protected.Group("/audit-logs")
 			auditRoutes.GET("", audit.GetAuditLogs)
+
+			// Steam Workshop mod management
+			modRoutes := protected.Group("/mods")
+			{
+				modRoutes.GET("/search", mods.SearchWorkshop)
+				modRoutes.GET("/lookup", mods.LookupWorkshopItems)
+			}
 
 			// Metrics dashboard (CPU, RAM, players)
 			metricsRoutes := protected.Group("/metrics")
