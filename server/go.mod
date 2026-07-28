@@ -19,7 +19,7 @@ require (
 	github.com/swaggo/swag v1.16.4
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.39.0
-	gorm.io/gorm v1.30.0
+	gorm.io/gorm v1.31.2
 )
 
 require (
