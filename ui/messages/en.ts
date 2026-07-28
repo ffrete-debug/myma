@@ -1054,6 +1054,20 @@ BabyImprintAmountMultiplier=1.0`
   },
 
   // Audit logs
+  rcon: {
+    quickActions: 'Quick actions',
+    actions: 'Actions',
+    broadcastPlaceholder: 'Broadcast a message to all players\u2026',
+    saveWorld: 'Save world',
+    setTime: 'Set time',
+    destroyWildDinos: 'Destroy wild dinos',
+    confirmDestroyDinos: 'This removes every wild creature. Are you sure?',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    kick: 'Kick player',
+    ban: 'Ban player',
+    actionFailed: 'Command failed',
+  },
   backups: {
     scheduleTitle: 'Automated backups',
     scheduleHint: 'Run backups on a schedule and optionally copy them off-host.',

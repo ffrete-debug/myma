@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { BackupScheduleCard } from '@/components/servers/BackupScheduleCard';
+import { RCONQuickActions } from '@/components/servers/RCONQuickActions';
 import { useTranslations } from 'next-intl';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -379,6 +380,8 @@ export default function ServerDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <RCONQuickActions serverId={serverId} disabled={server?.status !== 'running'} />
 
       <BackupScheduleCard serverId={serverId} />
     </div>
