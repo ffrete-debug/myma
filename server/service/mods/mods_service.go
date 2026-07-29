@@ -10,6 +10,8 @@ import (
 	"ark-server-commander/database"
 	"ark-server-commander/models"
 	"ark-server-commander/service/steam"
+	"ark-server-commander/utils"
+	"go.uber.org/zap"
 
 	"gorm.io/gorm"
 )
@@ -43,9 +45,21 @@ func ownedServer(serverID, userID uint) (*models.Server, error) {
 }
 
 // ListMods returns a server's mods in load order.
+//
+// Before listing, any ids present in the server's GameModIds field but missing
+// from the mods table are adopted. GameModIds is also editable directly on the
+// server edit form, and mods set that way were invisible on the Mods page -
+// the two were one-way linked, mods -> GameModIds only.
 func (s *Service) ListMods(serverID, userID uint) ([]models.ServerMod, error) {
-	if _, err := ownedServer(serverID, userID); err != nil {
+	server, err := ownedServer(serverID, userID)
+	if err != nil {
 		return nil, err
+	}
+
+	if err := s.adoptFromGameModIds(context.Background(), server); err != nil {
+		// Not fatal: the list is still useful without the adopted entries.
+		utils.Warn("could not adopt mods from GameModIds",
+			zap.Uint("server_id", serverID), zap.Error(err))
 	}
 
 	var mods []models.ServerMod
@@ -110,6 +124,62 @@ func (s *Service) AddMod(ctx context.Context, serverID, userID uint, workshopID 
 	}
 
 	return &mod, nil
+}
+
+// adoptFromGameModIds imports ids configured on the server record that are not
+// yet rows in the mods table, so the Mods page reflects whatever the server is
+// actually going to load.
+func (s *Service) adoptFromGameModIds(ctx context.Context, server *models.Server) error {
+	if strings.TrimSpace(server.GameModIds) == "" {
+		return nil
+	}
+
+	var existing []models.ServerMod
+	if err := database.DB.Where("server_id = ?", server.ID).Find(&existing).Error; err != nil {
+		return fmt.Errorf("load mods: %w", err)
+	}
+	known := make(map[string]bool, len(existing))
+	for _, m := range existing {
+		known[m.WorkshopID] = true
+	}
+
+	var missing []string
+	for _, raw := range strings.Split(server.GameModIds, ",") {
+		id := strings.TrimSpace(raw)
+		if id == "" || known[id] || !workshopIDPattern.MatchString(id) {
+			continue
+		}
+		missing = append(missing, id)
+		known[id] = true
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+
+	// Names are best-effort: a Steam lookup failure must not stop the mod from
+	// appearing, since it is already configured on the server.
+	titles := map[string]string{}
+	if items, err := s.steam.GetItems(ctx, missing); err == nil {
+		for _, it := range items {
+			titles[it.WorkshopID] = it.Title
+		}
+	}
+
+	position := len(existing)
+	for _, id := range missing {
+		mod := models.ServerMod{
+			ServerID:   server.ID,
+			WorkshopID: id,
+			Name:       titles[id],
+			Position:   position,
+			Enabled:    true,
+		}
+		if err := database.DB.Create(&mod).Error; err != nil && !isDuplicate(err) {
+			return fmt.Errorf("adopt mod %s: %w", id, err)
+		}
+		position++
+	}
+	return nil
 }
 
 // RemoveMod detaches a mod and closes the gap it leaves in the load order.

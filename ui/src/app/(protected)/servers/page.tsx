@@ -30,7 +30,7 @@ export default function ServersPage() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function ServersPage() {
   const handleStopServer = (server: Server) => stopServer(server.id);
   const handleRestartServer = (server: Server) => restartServer(server.id);
 
-  const handleToggleSelect = (serverId: string) => {
+  const handleToggleSelect = (serverId: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(serverId)) next.delete(serverId);

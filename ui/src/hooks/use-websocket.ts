@@ -25,7 +25,7 @@ const MAX_RECONNECT_ATTEMPTS = 8;
 // ws:// vs wss:// the same way. See src/lib/ws-url.ts.
 
 export function useWebSocket(
-  serverId: string,
+  serverId: number | string,
   onMessage: MessageHandler,
   enabled: boolean = true,
 ) {

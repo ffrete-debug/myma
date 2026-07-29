@@ -529,6 +529,9 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 
 	// StartYesNo
 	argsChanged := false
+	// Config edits also require a restart to take effect, and the UI needs to be
+	// told so - previously only ServerArgs changes set the flag.
+	configChanged := false
 	if req.ServerArgs != nil {
 		argsJson, err := json.Marshal(req.ServerArgs)
 		if err != nil {
@@ -564,6 +567,11 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 			if err := dockerManager.WriteConfigFile(uint(id), utils.GameUserSettingsFileName, req.GameUserSettings); err != nil {
 				return nil, false, fmt.Errorf(" GameUserSettings.ini : %w", err)
 			}
+			// Remember the intent. ARK overwrites this file on every clean
+			// shutdown, so the copy in the volume is not durable; the restart
+			// path re-applies this after the shutdown.
+			server.DesiredGameUserSettings = req.GameUserSettings
+			configChanged = true
 		}
 
 		if req.GameIni != "" {
@@ -573,6 +581,8 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 			if err := dockerManager.WriteConfigFile(uint(id), utils.GameIniFileName, req.GameIni); err != nil {
 				return nil, false, fmt.Errorf(" Game.ini : %w", err)
 			}
+			server.DesiredGameIni = req.GameIni
+			configChanged = true
 		}
 	}
 
@@ -609,7 +619,7 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 		response.GameIni = gameIni
 	}
 
-	return &response, argsChanged, nil
+	return &response, argsChanged || configChanged, nil
 }
 
 // DeleteServer Delete server
@@ -1187,4 +1197,94 @@ func (s *ServerService) GetImageStatus() (map[string]interface{}, error) {
 		"pulling_count":     pullingCount,
 		"total_images":      len(requiredImages),
 	}, nil
+}
+
+// RestartServer stops a server, waits for it to actually be down, then starts it.
+//
+// The controller used to call StopServer followed immediately by StartServer.
+// Both dispatch their work to a goroutine and return straight away, so the start
+// raced the stop: the start would find a still-running container (or be undone
+// by the stop finishing afterwards) and the server ended up stopped. That is why
+// the restart button appeared to only stop the server.
+func (s *ServerService) RestartServer(userID uint, serverID string) error {
+	if err := s.StopServer(userID, serverID); err != nil {
+		return fmt.Errorf("stop for restart: %w", err)
+	}
+
+	id, err := utils.ParseUint(serverID)
+	if err != nil {
+		return fmt.Errorf("invalid server id")
+	}
+
+	dockerManager, err := docker_manager.GetDockerManager()
+	if err != nil {
+		return fmt.Errorf("docker manager: %w", err)
+	}
+	containerName := utils.GetServerContainerName(id)
+
+	// Wait for the container to actually be down before starting again. ARK also
+	// rewrites its config on a clean shutdown, so starting early can race that
+	// too.
+	const (
+		pollInterval = time.Second
+		stopTimeout  = 90 * time.Second
+	)
+	deadline := time.Now().Add(stopTimeout)
+	for time.Now().Before(deadline) {
+		exists, existsErr := dockerManager.ContainerExists(containerName)
+		if existsErr != nil {
+			utils.Warn("restart: could not check container state", zap.Error(existsErr))
+			break
+		}
+		if !exists {
+			break
+		}
+		status, statusErr := dockerManager.GetContainerStatus(containerName)
+		if statusErr != nil || status != "running" {
+			break
+		}
+		time.Sleep(pollInterval)
+	}
+
+	// Re-apply the stored config now, while the server is DOWN.
+	//
+	// ARK rewrites GameUserSettings.ini on a clean shutdown with its own current
+	// settings, so a config edit made while the server was running is destroyed
+	// by the very restart meant to apply it. Writing after the shutdown - and
+	// before the next start - is the only point where the user's values survive
+	// to be read. This is what makes "save config, then restart" actually work.
+	if err := s.applyStoredConfig(id); err != nil {
+		utils.Warn("restart: could not re-apply stored config",
+			zap.Uint("server_id", id), zap.Error(err))
+	}
+
+	if err := s.StartServer(userID, serverID); err != nil {
+		return fmt.Errorf("start for restart: %w", err)
+	}
+	return nil
+}
+
+// applyStoredConfig writes the server's saved INI files into its volume.
+func (s *ServerService) applyStoredConfig(serverID uint) error {
+	var server models.Server
+	if err := database.DB.Where("id = ?", serverID).First(&server).Error; err != nil {
+		return fmt.Errorf("load server: %w", err)
+	}
+
+	dockerManager, err := docker_manager.GetDockerManager()
+	if err != nil {
+		return fmt.Errorf("docker manager: %w", err)
+	}
+
+	if server.DesiredGameUserSettings != "" {
+		if err := dockerManager.WriteConfigFile(serverID, utils.GameUserSettingsFileName, server.DesiredGameUserSettings); err != nil {
+			return fmt.Errorf("write GameUserSettings.ini: %w", err)
+		}
+	}
+	if server.DesiredGameIni != "" {
+		if err := dockerManager.WriteConfigFile(serverID, utils.GameIniFileName, server.DesiredGameIni); err != nil {
+			return fmt.Errorf("write Game.ini: %w", err)
+		}
+	}
+	return nil
 }

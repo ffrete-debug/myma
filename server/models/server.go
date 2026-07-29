@@ -7,24 +7,34 @@ import (
 )
 
 type Server struct {
-	ID            uint           `json:"id" gorm:"primarykey"`
-	Identifier    string         `json:"identifier" gorm:"not null"`
-	SessionName   string         `json:"session_name" gorm:"default:'ARK Server'"` // Servers
-	ClusterID     string         `json:"cluster_id" gorm:"default:''"`             // ID
-	Port          int            `json:"port" gorm:"not null;default:7777"`
-	QueryPort     int            `json:"query_port" gorm:"not null;default:27015"`
-	RCONPort      int            `json:"rcon_port" gorm:"not null;default:32330"`
-	AdminPassword string         `json:"admin_password" gorm:"not null;default:password"`
-	Map           string         `json:"map" gorm:"default:'TheIsland'"`
-	MaxPlayers    int            `json:"max_players" gorm:"not null;default:70"` // Max Players
-	GameModIds    string         `json:"game_mod_ids" gorm:"default:''"`         // ID，
-	Status        string         `json:"status" gorm:"default:'stopped'"`
-	AutoRestart   bool           `json:"auto_restart" gorm:"default:true"`
-	UserID        uint           `json:"user_id" gorm:"not null"`
-	User          User           `json:"user" gorm:"foreignKey:UserID"`
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index"`
+	ID            uint   `json:"id" gorm:"primarykey"`
+	Identifier    string `json:"identifier" gorm:"not null"`
+	SessionName   string `json:"session_name" gorm:"default:'ARK Server'"` // Servers
+	ClusterID     string `json:"cluster_id" gorm:"default:''"`             // ID
+	Port          int    `json:"port" gorm:"not null;default:7777"`
+	QueryPort     int    `json:"query_port" gorm:"not null;default:27015"`
+	RCONPort      int    `json:"rcon_port" gorm:"not null;default:32330"`
+	AdminPassword string `json:"admin_password" gorm:"not null;default:password"`
+	Map           string `json:"map" gorm:"default:'TheIsland'"`
+	MaxPlayers    int    `json:"max_players" gorm:"not null;default:70"` // Max Players
+	GameModIds    string `json:"game_mod_ids" gorm:"default:''"`
+
+	// Desired INI content, as last saved by the user.
+	//
+	// The live files live in the server's volume, but ARK REWRITES them with its
+	// own settings on every clean shutdown - so an edit made while the server was
+	// running is destroyed by the restart meant to apply it. Persisting the
+	// intent here lets the restart path write it back after the shutdown and
+	// before the next start, which is the only moment ARK will read it.
+	DesiredGameUserSettings string         `json:"-" gorm:"type:text"`
+	DesiredGameIni          string         `json:"-" gorm:"type:text"` // ID，
+	Status                  string         `json:"status" gorm:"default:'stopped'"`
+	AutoRestart             bool           `json:"auto_restart" gorm:"default:true"`
+	UserID                  uint           `json:"user_id" gorm:"not null"`
+	User                    User           `json:"user" gorm:"foreignKey:UserID"`
+	CreatedAt               time.Time      `json:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at"`
+	DeletedAt               gorm.DeletedAt `gorm:"index"`
 	// Start（JSON）
 	ServerArgsJSON string `json:"server_args_json" gorm:"default:'{}'"` // StartJSON
 }

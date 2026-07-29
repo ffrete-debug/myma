@@ -67,7 +67,11 @@ export default function ModsPage() {
   }, []);
 
   useEffect(() => {
-    if (!serverId && servers.length) setServerId(servers[0].id);
+    // String(): the store types Server.id as a string but the API returns a
+    // NUMBER, so assigning it raw made serverId a number and any later
+    // serverId.trim() threw "i.trim is not a function", which crashed the whole
+    // page with a client-side exception.
+    if (!serverId && servers.length) setServerId(String(servers[0].id));
   }, [servers, serverId]);
 
   const loadMods = useCallback(async (id: string) => {

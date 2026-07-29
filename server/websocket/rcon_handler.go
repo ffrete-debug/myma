@@ -22,7 +22,7 @@ var rconUpgrader = websocket.Upgrader{
 // Limits applied to the RCON WebSocket session.
 const (
 	rconMaxCommandSize = 1 << 10                // 1 KB per inbound command (RCON commands are short shell-like strings)
-	rconReadTimeout    = 30 * time.Second       // idle read deadline before we drop the session
+	rconReadTimeout    = 90 * time.Second       // read deadline, refreshed by pongs
 	rconWriteTimeout   = 10 * time.Second       // write deadline for responses
 	rconMinInterval    = 250 * time.Millisecond // rate limit between commands per session
 	rconMaxOutput      = 65536                  // 64 KB — bounce brutal responses (server logs, dump commands)
@@ -52,6 +52,33 @@ func HandleRCONWebSocket(c *gin.Context) {
 		safeWriteText(conn, "error: server not found")
 		return
 	}
+
+	// Keepalive. Without this the handler dropped any console that sat idle for
+	// the read timeout, and the browser reconnected immediately - a console left
+	// open just cycled connect/disconnect every few seconds. Browsers answer a
+	// ping automatically, so a pong handler that extends the deadline keeps an
+	// idle session alive without the user having to type anything.
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(rconReadTimeout))
+	})
+
+	pingDone := make(chan struct{})
+	defer close(pingDone)
+	go func() {
+		ticker := time.NewTicker(rconReadTimeout / 3)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-pingDone:
+				return
+			case <-ticker.C:
+				_ = conn.SetWriteDeadline(time.Now().Add(rconWriteTimeout))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
+			}
+		}
+	}()
 
 	// Per-connection rate limiter: a session that issues commands too fast is
 	// most likely a runaway script. Forcing a small floor (~250 ms) keeps the
