@@ -29,6 +29,12 @@ type PlayerListResponse struct {
 	Online      []OnlinePlayer `json:"online"`
 	TotalOnline int            `json:"total_online"`
 	MaxPlayers  int            `json:"max_players"`
+
+	// The server is stopped: an empty list is expected, not an error.
+	NotRunning bool `json:"not_running,omitempty"`
+	// The server is marked running but RCON did not answer - usually still
+	// booting.
+	Unreachable bool `json:"unreachable,omitempty"`
 }
 
 type OnlinePlayer struct {

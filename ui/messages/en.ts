@@ -1039,6 +1039,8 @@ BabyImprintAmountMultiplier=1.0`
     serverIdPlaceholder: 'Enter server ID (e.g. 1)',
     fetchPlayers: 'Fetch Players',
     noOnlinePlayers: 'No online players found',
+    serverNotRunning: 'This server is stopped, so there are no players to show.',
+    serverStarting: 'This server is starting up \u2014 player data will appear once it is ready.',
     onlineNow: 'Online Now',
     onlinePlayers: 'Online Players',
     maxPlayers: 'Max Players',
