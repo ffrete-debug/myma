@@ -1,6 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import Cookies from 'js-cookie';
-import useAuthStore from '@/stores/auth';
 
 const AUTH_COOKIE_NAME = 'auth-token';
 const LOGIN_PATH = '/login';
@@ -52,9 +51,14 @@ instance.interceptors.response.use(
       !isAuthRequest(error.config?.url) &&
       window.location.pathname !== LOGIN_PATH
     ) {
-      // Clear the in-memory store *and* the cookie, otherwise `middleware.ts`
-      // would see a stale token and bounce the user straight back out of /login.
-      useAuthStore.getState().actions.logout();
+      // Clear the cookie directly rather than reaching into the auth store.
+      // The stores import THIS module, so importing the store back at module
+      // scope forms a cycle and can leave it undefined while modules are still
+      // initialising. Removing the cookie is what actually matters: otherwise
+      // `middleware.ts` sees a stale token and bounces the user back out of
+      // /login. A full page load follows, so the in-memory store is discarded
+      // anyway.
+      Cookies.remove(AUTH_COOKIE_NAME);
       window.location.assign(LOGIN_PATH);
     }
     return Promise.reject(error);

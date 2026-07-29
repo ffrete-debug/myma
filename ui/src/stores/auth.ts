@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import axios from 'axios';
+// Use the configured instance, not bare axios: it carries the 401 handler
+// that clears a dead session and sends the user to /login. Calls made with
+// bare axios skipped it, so a token for a user that no longer exists (after
+// the database is reset, say) produced a console error per caller and left
+// the page stranded instead of redirecting once.
+import { isAxiosError } from 'axios';
+import axios from '@/lib/axios';
 import Cookies from 'js-cookie';
 
 // Define user object type
@@ -82,7 +88,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
         Cookies.set('auth-token', token, authCookieOptions());
         return { success: true, message };
       } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
+        if (isAxiosError(error) && error.response) {
           return { success: false, message: error.response.data?.error || 'Initialization failed' };
         }
         return { success: false, message: 'Initialization failed' };
@@ -99,7 +105,7 @@ const useAuthStore = create<AuthState>((set, get) => ({
         Cookies.set('auth-token', token, authCookieOptions());
         return { success: true, message };
       } catch (error) {
-        if (axios.isAxiosError(error) && error.response) {
+        if (isAxiosError(error) && error.response) {
           return { success: false, message: error.response.data?.error || 'Login failed' };
         }
         return { success: false, message: 'Login failed' };
@@ -116,7 +122,15 @@ const useAuthStore = create<AuthState>((set, get) => ({
         });
         set({ user: response.data.user });
       } catch (error) {
-        console.error('Failed to get user info:', error);
+        // A 401 here means the session is dead - the token outlived its user,
+        // which is exactly what happens after the database is reset. The shared
+        // interceptor already clears the cookie and moves the user on, so this
+        // is an expected, handled outcome and must not be logged as a failure:
+        // every caller doing so is what produced the console full of errors on a
+        // fresh install.
+        if (!isAxiosError(error) || error.response?.status !== 401) {
+          console.error('Failed to get user info:', error);
+        }
         get().actions.logout();
       }
     },

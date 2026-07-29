@@ -5,7 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { BackupScheduleCard } from '@/components/servers/BackupScheduleCard';
 import { RCONQuickActions } from '@/components/servers/RCONQuickActions';
 import { useTranslations } from 'next-intl';
-import axios from 'axios';
+// Use the configured instance, not bare axios: it carries the 401 handler
+// that clears a dead session and sends the user to /login. Calls made with
+// bare axios skipped it, so a token for a user that no longer exists (after
+// the database is reset, say) produced a console error per caller and left
+// the page stranded instead of redirecting once.
+import axios from '@/lib/axios';
 import Cookies from 'js-cookie';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
