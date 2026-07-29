@@ -9,6 +9,7 @@ import (
 	"ark-server-commander/models"
 	"ark-server-commander/service/server"
 	"ark-server-commander/utils"
+	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
 )
@@ -467,28 +468,22 @@ func RestartServer(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	serverID := c.Param("id")
 
-	// stop first
-	if err := serverService.StopServer(userID, serverID); err != nil {
-		if err.Error() == "None Server ID" {
-			utils.BadRequest(c, "Invalid request parameters", err.Error())
-			return
+	// The restart is sequential in the service - stop, wait for the container to
+	// actually be down, re-apply config, then start - which takes longer than
+	// the request timeout. So it runs in the background and the client is told
+	// immediately; progress arrives over the status WebSocket.
+	//
+	// Calling StopServer and StartServer back to back here used to race: both
+	// dispatch their work to a goroutine and return, the stop finished last, and
+	// the server was left stopped. That is why restart appeared to only stop.
+	go func() {
+		if err := serverService.RestartServer(userID, serverID); err != nil {
+			utils.Error("restart failed", zap.String("server_id", serverID), zap.Error(err))
 		}
-		if err.Error() == "Server not found" {
-			utils.NotFound(c, "Resource not found", err.Error())
-			return
-		}
-		// ignore "already stopped" errors
-	}
-	// then start
-	if err := serverService.StartServer(userID, serverID); err != nil {
-		utils.InternalError(c, "Internal server error", err.Error())
-		return
-	}
-	middleware.Log.Log(userID, "server.restart", fmt.Sprintf("server:%s", serverID), "", c.ClientIP())
+	}()
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Server restart command sent",
-	})
+	middleware.Log.Log(userID, "server.restart", fmt.Sprintf("server:%s", serverID), "started", c.ClientIP())
+	c.JSON(http.StatusOK, gin.H{"message": "Server restarting"})
 }
 
 // Each id drives synchronous Docker work, so cap the batch size to keep a

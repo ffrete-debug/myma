@@ -3,8 +3,23 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 
 // Define server object type
+
+/** A server id as it appears anywhere in the app: the API sends a number, but
+ *  route params and <select> values are strings. */
+export type ServerId = number | string;
+
+/** Compare ids without caring which representation the caller holds. Using ===
+ *  compared a number against a string and never matched, so status updates were
+ *  silently dropped. */
+export function sameServer(a: ServerId, b: ServerId): boolean {
+    return String(a) === String(b);
+}
+
 export interface Server {
-    id: string;
+    /** The API returns a JSON number here. It was typed as a string, which let
+     *  callers assume string methods were available and produced a runtime
+     *  "trim is not a function" crash on the players page. */
+    id: number;
     identifier: string;
     session_name: string;
     status: 'running' | 'stopped' | 'starting' | 'stopping' | 'restarting';
@@ -94,14 +109,14 @@ interface ServersActions {
     fetchServers: (page?: number, limit?: number) => Promise<void>;
     setPage: (page: number, limit?: number) => void;
     createServer: (serverData: Partial<Server>) => Promise<Server>;
-    updateServer: (serverId: string, updateData: Partial<Server>) => Promise<Server>;
-    deleteServer: (serverId: string) => Promise<void>;
-    getServer: (serverId: string) => Promise<Server>;
+    updateServer: (serverId: ServerId, updateData: Partial<Server>) => Promise<Server>;
+    deleteServer: (serverId: ServerId) => Promise<void>;
+    getServer: (serverId: ServerId) => Promise<Server>;
     getImageStatus: () => Promise<void>;
-    startServer: (serverId: string) => Promise<void>;
-    stopServer: (serverId: string) => Promise<void>;
-    restartServer: (serverId: string) => Promise<void>;
-    updateServerStatus: (serverId: string, status: Server['status']) => void;
+    startServer: (serverId: ServerId) => Promise<void>;
+    stopServer: (serverId: ServerId) => Promise<void>;
+    restartServer: (serverId: ServerId) => Promise<void>;
+    updateServerStatus: (serverId: ServerId, status: Server['status']) => void;
 }
 
 const getAuthHeaders = () => {
@@ -162,7 +177,7 @@ const useServersStore = create<ServersState>((set, get) => ({
                 const response = await axios.put(`/api/servers/${serverId}`, updateData, { headers: getAuthHeaders() });
                 const updatedServer = response.data.data;
                 set((state) => ({
-                    servers: state.servers.map((s) => (s.id === serverId ? updatedServer : s)),
+                    servers: state.servers.map((s) => (sameServer(s.id, serverId) ? updatedServer : s)),
                 }));
                 return updatedServer;
             } catch (error) {
@@ -174,7 +189,7 @@ const useServersStore = create<ServersState>((set, get) => ({
             try {
                 await axios.delete(`/api/servers/${serverId}`, { headers: getAuthHeaders() });
                 set((state) => ({
-                    servers: state.servers.filter((s) => s.id !== serverId),
+                    servers: state.servers.filter((s) => !sameServer(s.id, serverId)),
                 }));
             } catch (error) {
                 set({ error: toErrorCode(error, 'deleteServerFailed') });
