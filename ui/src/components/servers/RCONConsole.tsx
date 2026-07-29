@@ -121,6 +121,37 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
     }
   }, []);
 
+  // Read-only log stream. Separate from the RCON socket on purpose: it must keep
+  // running even when RCON is unreachable (during startup, which is exactly when
+  // the log matters most).
+  const logWsRef = useRef<WebSocket | null>(null);
+  const logClosingRef = useRef(false);
+
+  const connectLogStream = useCallback(() => {
+    const token = Cookies.get('auth-token');
+    if (!token) return;
+
+    try {
+      const ws = new WebSocket(buildWebSocketUrl(`/api/ws/logs/${serverId}`, token));
+      logWsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        if (logWsRef.current !== ws) return;
+        const text = sanitizeTerminalOutput(String(event.data)).replace(/\n/g, '\r\n');
+        termRef.current?.write('\r\n' + text);
+      };
+      ws.onclose = () => {
+        if (logWsRef.current !== ws || logClosingRef.current) return;
+        logWsRef.current = null;
+        // The server log is worth retrying quietly; no need to shout about it in
+        // the terminal, which is shared with command output.
+        setTimeout(() => { if (!logClosingRef.current) connectLogStream(); }, 5000);
+      };
+    } catch {
+      /* the RCON half of the console still works without the log */
+    }
+  }, [serverId]);
+
   const connectWS = useCallback(() => {
     if (isClosingRef.current) return;
 
@@ -245,6 +276,15 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
     fitRef.current = fit;
 
     term.writeln(tRef.current('connectingHint'));
+
+    // Attach the SERVER LOG alongside RCON.
+    //
+    // RCON is strictly request/response - it can only answer commands, so it can
+    // never show startup output, plugin/ArkApi loading or anything the server
+    // prints on its own. That output is the container log, which is what other
+    // managers display in their console. Streaming it here read-only makes this
+    // console show what an operator actually expects to see.
+    connectLogStream();
     if (!isServerReachableRef.current) {
       term.writeln('\r\n' + tRef.current('serverOffline'));
       setConnectionState('disconnected');
@@ -313,6 +353,10 @@ export function RCONConsole({ serverId, serverStatus }: RCONConsoleProps) {
 
     return () => {
       isClosingRef.current = true;
+      logClosingRef.current = true;
+      logWsRef.current?.close();
+      logWsRef.current = null;
+
       window.removeEventListener('resize', handleResize);
       ro.disconnect();
       if (reconnectTimerRef.current) {
