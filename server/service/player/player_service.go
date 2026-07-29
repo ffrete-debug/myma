@@ -37,10 +37,36 @@ func (s *PlayerService) GetPlayers(userID uint, serverID string) (models.PlayerL
 		return models.PlayerListResponse{}, fmt.Errorf("server not found: %w", err)
 	}
 
+	// A stopped server has no RCON listener, which is expected - not a server
+	// fault. Returning 500 with a raw dial error made the players page look
+	// broken whenever the selected server happened to be stopped, which is the
+	// default when the first server in the list is not running.
+	if server.Status != "running" {
+		return models.PlayerListResponse{
+			ServerID:    server.ID,
+			Identifier:  server.Identifier,
+			SessionName: server.SessionName,
+			Online:      []models.OnlinePlayer{},
+			TotalOnline: 0,
+			MaxPlayers:  server.MaxPlayers,
+			NotRunning:  true,
+		}, nil
+	}
+
 	// Use RCON to get the player list from the running server
 	output, err := rcon.ExecuteCommand(config.RCONHost, server.RCONPort, server.AdminPassword, "listplayers")
 	if err != nil {
-		return models.PlayerListResponse{}, fmt.Errorf("rcon listplayers failed: %w", err)
+		// The server is marked running but RCON is unreachable - usually still
+		// booting. Report it as a state, not a failure, so the page can say so.
+		return models.PlayerListResponse{
+			ServerID:    server.ID,
+			Identifier:  server.Identifier,
+			SessionName: server.SessionName,
+			Online:      []models.OnlinePlayer{},
+			TotalOnline: 0,
+			MaxPlayers:  server.MaxPlayers,
+			Unreachable: true,
+		}, nil
 	}
 
 	online := ParseListPlayersOutput(output)

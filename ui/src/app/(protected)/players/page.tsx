@@ -22,6 +22,10 @@ interface OnlinePlayer {
 }
 
 interface PlayerListResponse {
+  /** Server is stopped - an empty list is expected, not a failure. */
+  not_running?: boolean;
+  /** Marked running but RCON did not answer, usually still booting. */
+  unreachable?: boolean;
   server_id: number;
   identifier: string;
   session_name: string;
@@ -80,7 +84,13 @@ export default function PlayersPage() {
     // NUMBER, so assigning it raw made serverId a number and any later
     // serverId.trim() threw "i.trim is not a function", which crashed the whole
     // page with a client-side exception.
-    if (!serverId && servers.length) setServerId(String(servers[0].id));
+    // Prefer a RUNNING server. Auto-selecting the first one in the list landed
+    // on a stopped server, whose player list cannot be fetched, so the page
+    // opened showing an error for no good reason.
+    if (!serverId && servers.length) {
+      const running = servers.find((srv) => srv.status === 'running');
+      setServerId(String((running ?? servers[0]).id));
+    }
   }, [servers, serverId]);
 
   // Kick/ban are sent as structured actions; the server builds the RCON
@@ -271,7 +281,11 @@ export default function PlayersPage() {
                   marshals to JSON null, not []. Reading .length off it threw and
                   crashed the page, which is why /players broke as soon as a
                   server was actually selected. */}
-              {(players.online ?? []).length === 0 ? (
+              {players.not_running || players.unreachable ? (
+                <p className="text-muted-foreground text-sm">
+                  {players.not_running ? t('serverNotRunning') : t('serverStarting')}
+                </p>
+              ) : (players.online ?? []).length === 0 ? (
                 <p className="text-muted-foreground text-sm">{t('noOnlinePlayers')}</p>
               ) : (
                 <Table>

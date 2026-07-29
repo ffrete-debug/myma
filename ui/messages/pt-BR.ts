@@ -1039,6 +1039,8 @@ BabyImprintAmountMultiplier=1.0`
     serverIdPlaceholder: 'Informe o ID do servidor (ex. 1)',
     fetchPlayers: 'Buscar Jogadores',
     noOnlinePlayers: 'Nenhum jogador online encontrado',
+    serverNotRunning: 'Este servidor está parado, então não há jogadores para mostrar.',
+    serverStarting: 'Este servidor está iniciando \u2014 os dados de jogadores aparecerão quando estiver pronto.',
     onlineNow: 'Online Agora',
     onlinePlayers: 'Jogadores Online',
     maxPlayers: 'Máx. Jogadores',

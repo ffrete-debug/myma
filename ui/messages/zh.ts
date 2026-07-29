@@ -1039,6 +1039,8 @@ BabyImprintAmountMultiplier=1.0`
     serverIdPlaceholder: '输入服务器 ID（例如 1）',
     fetchPlayers: '获取玩家',
     noOnlinePlayers: '未找到在线玩家',
+    serverNotRunning: '该服务器已停止，无玩家可显示。',
+    serverStarting: '服务器正在启动 \u2014 就绪后将显示玩家数据。',
     onlineNow: '在线',
     onlinePlayers: '在线玩家',
     maxPlayers: '最大玩家数',
