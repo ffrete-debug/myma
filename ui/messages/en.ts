@@ -423,6 +423,8 @@ export default {
       enabled: 'Enabled',
       disabled: 'Disabled',
       parametersCount: ' parameters',
+      otherSettingsTitle: 'Other settings in this file',
+      otherSettingsHint: '{count} settings ARK wrote that are not in the presets above. They are shown so nothing on the server is hidden, and they are preserved when you save.',
       defaultValue: 'Default',
       parseGameIniError: 'Failed to parse Game.ini text',
       syncVisualToTextError: 'Failed to sync visual config to text',

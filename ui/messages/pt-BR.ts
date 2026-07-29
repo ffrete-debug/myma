@@ -423,6 +423,8 @@ export default {
       enabled: 'Enabled',
       disabled: 'Disabled',
       parametersCount: ' parameters',
+      otherSettingsTitle: 'Outras configurações neste arquivo',
+      otherSettingsHint: '{count} configurações que o ARK gravou e não estão nas predefinições acima. São mostradas para nada ficar oculto e são preservadas ao salvar.',
       defaultValue: 'Default',
       parseGameIniError: 'Failed to parse Game.ini text',
       syncVisualToTextError: 'Failed to sync visual config to text',

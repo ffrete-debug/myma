@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { mergeIni } from '@/lib/ini';
+import { mergeIni, readIniSection } from '@/lib/ini';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -480,6 +480,28 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
     }
   }, [onChange]);
 
+  /**
+   * Keys present in the server's real GameUserSettings.ini that the curated
+   * parameter catalogue does not model.
+   *
+   * ARK writes hundreds of settings the visual editor knows nothing about.
+   * Showing only the curated ones made the editor look like it did not reflect
+   * the real server, so these are surfaced too - visible and editable, and
+   * preserved on save by the merge.
+   */
+  const unmodelledSettings = useMemo(() => {
+    const known = new Set<string>();
+    getAllGameUserSettingsCategories().forEach((categoryKey) => {
+      Object.keys(getGameUserSettingsParamsByCategory(categoryKey)).forEach((k) =>
+        known.add(k.toLowerCase()));
+    });
+
+    const live = readIniSection(textContent || '', '[ServerSettings]');
+    return Object.entries(live)
+      .filter(([key]) => !known.has(key.toLowerCase()))
+      .sort(([a], [b]) => a.localeCompare(b));
+  }, [textContent]);
+
   const syncVisualToText = useCallback(() => {
     syncVisualToTextWithConfig(visualConfig);
   }, [visualConfig, syncVisualToTextWithConfig]);
@@ -710,6 +732,28 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
             );
           })}
         </Tabs>
+      )}
+
+      {/* Everything else ARK actually wrote to this file. */}
+      {editMode === 'visual' && unmodelledSettings.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-lg">{t('otherSettingsTitle')}</CardTitle>
+            <CardDescription>
+              {t('otherSettingsHint', { count: unmodelledSettings.length })}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2">
+              {unmodelledSettings.map(([key, value]) => (
+                <div key={key} className="space-y-1">
+                  <Label className="font-mono text-xs text-muted-foreground">{key}</Label>
+                  <Input value={value} onChange={(e) => handleVisualChange(key, e.target.value)} />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Text Edit Mode */}
