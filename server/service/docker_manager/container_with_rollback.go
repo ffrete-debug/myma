@@ -1,6 +1,7 @@
 package docker_manager
 
 import (
+	"ark-server-commander/config"
 	"ark-server-commander/database"
 	"ark-server-commander/models"
 	"ark-server-commander/service/mods"
@@ -116,10 +117,25 @@ func (dm *DockerManager) CreateContainerWithRollback(serverID uint, serverName s
 	}
 
 	// 8:
+	// Optional resource caps, off by default so behaviour is unchanged unless an
+	// operator opts in. An ARK server is memory-hungry and its first boot pulls
+	// roughly 15GB through steamcmd, so on a shared or small host an unbounded
+	// container can starve everything else on the machine - including this
+	// manager.
+	resources := container.Resources{}
+	if config.ServerMemoryLimitMB > 0 {
+		resources.Memory = config.ServerMemoryLimitMB * 1024 * 1024
+	}
+	if config.ServerCPULimit > 0 {
+		// NanoCPUs is cores expressed in billionths.
+		resources.NanoCPUs = int64(config.ServerCPULimit * 1e9)
+	}
+
 	hostConfig := &container.HostConfig{
 		RestartPolicy: container.RestartPolicy{
 			Name: restartPolicyName,
 		},
+		Resources: resources,
 		PortBindings: nat.PortMap{
 			nat.Port(fmt.Sprintf("%d/udp", port)): {
 				{HostPort: fmt.Sprintf("%d", port)},
