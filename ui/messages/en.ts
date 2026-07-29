@@ -238,6 +238,7 @@ export default {
     noLogs: 'No logs yet',
     getServerListFailed: 'Failed to get server list, please try again later',
     loadServerInfoFailed: 'Failed to load server info, please try again later',
+    configUnreadable: 'The live config files could not be read from this server, so the editors below may be empty. Saving is disabled to avoid overwriting the real configuration. Check that the server volume exists and Docker is reachable.',
     fetchLogsFailed: 'Failed to fetch logs, please try again later',
     serverUpdateError: 'Failed to update server, please try again later',
     operationFailed: 'Operation failed, please try again later',

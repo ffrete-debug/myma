@@ -238,6 +238,7 @@ export default {
     noLogs: 'No logs yet',
     getServerListFailed: 'Failed to get server list, please try again later',
     loadServerInfoFailed: 'Failed to load server info, please try again later',
+    configUnreadable: 'Não foi possível ler os arquivos de configuração reais deste servidor, então os editores abaixo podem estar vazios. O salvamento foi desativado para não sobrescrever a configuração real. Verifique se o volume do servidor existe e se o Docker está acessível.',
     fetchLogsFailed: 'Falha ao obter os logs, tente novamente mais tarde',
     serverUpdateError: 'Falha ao atualizar o servidor, tente novamente mais tarde',
     operationFailed: 'Operation failed, please try again later',

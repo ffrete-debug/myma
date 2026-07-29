@@ -128,7 +128,10 @@ func (s *PlayerService) GetPlayersHistory(userID uint, serverID string) ([]model
 // that check the prose empty-server reply was parsed as a player named
 // "No Players Connected", so an empty server reported one player online.
 func ParseListPlayersOutput(output string) []models.OnlinePlayer {
-	var players []models.OnlinePlayer
+	// Non-nil so an empty result marshals to [] rather than null. A nil slice
+	// becomes JSON null, and the UI read .length off it and crashed the whole
+	// players page as soon as a server with nobody online was selected.
+	players := make([]models.OnlinePlayer, 0)
 
 	steamIDRe := regexp.MustCompile(`(\d{17})`)
 	charIDRe := regexp.MustCompile(`\(([^)]+)\)`)
