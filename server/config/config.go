@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -20,6 +21,17 @@ var (
 	// the published port; on a bare-metal run the loopback address is correct.
 	// Override with RCON_HOST when the game servers live somewhere else.
 	RCONHost = "127.0.0.1"
+
+	// ServerMemoryLimitMB caps a game container's memory, and ServerCPULimit its
+	// CPU cores. Both default to 0, meaning unlimited, which is Docker's own
+	// default and preserves existing behaviour.
+	//
+	// Worth setting on a shared or small host: an ARK server is memory-hungry and
+	// a first boot downloads roughly 15GB through steamcmd, so an unbounded
+	// container can starve everything else on the machine, including the manager
+	// itself.
+	ServerMemoryLimitMB int64   = 0
+	ServerCPULimit      float64 = 0
 
 	// SteamAPIKey enables Steam Workshop *search*. Looking a mod up by its
 	// Workshop ID needs no key; only the search endpoint does. Empty means the
@@ -120,6 +132,8 @@ func InitConfig() error {
 
 	SteamAPIKey = os.Getenv("STEAM_API_KEY")
 
+	loadResourceLimits()
+
 	S3Endpoint = os.Getenv("S3_ENDPOINT")
 	S3Bucket = os.Getenv("S3_BUCKET")
 	S3AccessKey = os.Getenv("S3_ACCESS_KEY")
@@ -159,4 +173,26 @@ func InitConfig() error {
 	}
 
 	return nil
+}
+
+// loadResourceLimits reads the optional game-container resource caps.
+//
+// Invalid or non-positive values are ignored rather than failing startup: a typo
+// in one of these must not stop the manager from booting, and falling back to
+// unlimited matches Docker's own default.
+func loadResourceLimits() {
+	if raw := os.Getenv("SERVER_MEMORY_LIMIT_MB"); raw != "" {
+		if mb, err := strconv.ParseInt(raw, 10, 64); err == nil && mb > 0 {
+			ServerMemoryLimitMB = mb
+		} else {
+			fmt.Fprintf(os.Stderr, "config: ignoring invalid SERVER_MEMORY_LIMIT_MB %q\n", raw)
+		}
+	}
+	if raw := os.Getenv("SERVER_CPU_LIMIT"); raw != "" {
+		if cores, err := strconv.ParseFloat(raw, 64); err == nil && cores > 0 {
+			ServerCPULimit = cores
+		} else {
+			fmt.Fprintf(os.Stderr, "config: ignoring invalid SERVER_CPU_LIMIT %q\n", raw)
+		}
+	}
 }
