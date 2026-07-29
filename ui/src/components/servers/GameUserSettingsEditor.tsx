@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { mergeIni } from '@/lib/ini';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -439,182 +440,45 @@ export function GameUserSettingsEditor({ value, onChange }: GameUserSettingsEdit
     return values;
   };
 
+  // Keep the newest text in a ref so the merge always applies onto the CURRENT
+  // file rather than a value captured when the callback was created.
+  const textContentRef = useRef(textContent);
+  useEffect(() => { textContentRef.current = textContent; }, [textContent]);
+
   const syncVisualToTextWithConfig = useCallback((config: Record<string, string | number | boolean>) => {
     try {
-      // Build INI content matching GameUserSettings.ini format
-      let iniContent = '';
+      // MERGE onto the real file instead of rebuilding it.
+      //
+      // This used to regenerate GameUserSettings.ini from the editor's own
+      // parameter catalogue. ARK writes hundreds of keys that are not in that
+      // catalogue, so a single edit in the visual tab silently deleted all of
+      // them - the editor replaced the server's real configuration with its own
+      // subset. Everything unknown is now preserved untouched.
+      const base = textContentRef.current || '';
 
-      // ServerSettings section
-      iniContent += '[ServerSettings]\n';
-      const serverBasicParams = getGameUserSettingsParamsByCategory('serverBasic');
-      Object.keys(serverBasicParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined && value !== '') {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
+      // Keys that live outside [ServerSettings] are applied to their own
+      // sections; the rest go to [ServerSettings].
+      // MaxPlayers is read by ARK from [/Script/Engine.GameSession]; writing it
+      // to [ServerSettings] has no effect on the running server.
+      const { SessionName, Message, Duration, MaxPlayers, ...serverSettings } = config;
 
-      // Game mode settings
-      const gameModeParams = getGameUserSettingsParamsByCategory('gameMode');
-      Object.keys(gameModeParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
+      let merged = mergeIni(base, serverSettings, '[ServerSettings]');
+      if (MaxPlayers !== undefined && MaxPlayers !== '') {
+        merged = mergeIni(merged, { MaxPlayers }, '[/Script/Engine.GameSession]');
+      }
+      if (SessionName !== undefined && SessionName !== '') {
+        merged = mergeIni(merged, { SessionName }, '[SessionSettings]');
+      }
+      if (Message !== undefined || Duration !== undefined) {
+        merged = mergeIni(merged, { Message, Duration }, '[MessageOfTheDay]');
+      }
 
-      // Communication settings
-      const communicationParams = getGameUserSettingsParamsByCategory('communication');
-      Object.keys(communicationParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Game multipliers
-      const gameMultipliersParams = getGameUserSettingsParamsByCategory('gameMultipliers');
-      Object.keys(gameMultipliersParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Character settings
-      const characterSettingsParams = getGameUserSettingsParamsByCategory('characterSettings');
-      Object.keys(characterSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Dino settings
-      const dinoSettingsParams = getGameUserSettingsParamsByCategory('dinoSettings');
-      Object.keys(dinoSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Environment settings
-      const environmentSettingsParams = getGameUserSettingsParamsByCategory('environmentSettings');
-      Object.keys(environmentSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Structure settings
-      const structureSettingsParams = getGameUserSettingsParamsByCategory('structureSettings');
-      Object.keys(structureSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Tribe settings
-      const tribeSettingsParams = getGameUserSettingsParamsByCategory('tribeSettings');
-      Object.keys(tribeSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Breeding settings
-      const breedingSettingsParams = getGameUserSettingsParamsByCategory('breedingSettings');
-      Object.keys(breedingSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Item settings
-      const itemSettingsParams = getGameUserSettingsParamsByCategory('itemSettings');
-      Object.keys(itemSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Performance settings
-      const performanceSettingsParams = getGameUserSettingsParamsByCategory('performanceSettings');
-      Object.keys(performanceSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Disease settings
-      const diseaseSettingsParams = getGameUserSettingsParamsByCategory('diseaseSettings');
-      Object.keys(diseaseSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Offline raid settings
-      const offlineRaidSettingsParams = getGameUserSettingsParamsByCategory('offlineRaidSettings');
-      Object.keys(offlineRaidSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Cross ARK settings
-      const crossArkSettingsParams = getGameUserSettingsParamsByCategory('crossArkSettings');
-      Object.keys(crossArkSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Flyer settings
-      const flyerSettingsParams = getGameUserSettingsParamsByCategory('flyerSettings');
-      Object.keys(flyerSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Advanced settings
-      const advancedSettingsParams = getGameUserSettingsParamsByCategory('advancedSettings');
-      Object.keys(advancedSettingsParams).forEach(key => {
-        const value = config[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Add other required sections
-      iniContent += '\n[/Script/Engine.GameSession]\n';
-      iniContent += 'MaxPlayers=70\n\n';
-
-      iniContent += '[SessionSettings]\n';
-      iniContent += `SessionName=${config.SessionName || tDefaultValues('sessionName')}\n\n`;
-
-      iniContent += '[MessageOfTheDay]\n';
-      iniContent += `Message=${config.Message || tDefaultValues('message')}\n`;
-      iniContent += `Duration=${config.Duration || 30}\n`;
-
-      setTextContent(iniContent);
-      onChange?.(iniContent);
+      setTextContent(merged);
+      onChange?.(merged);
     } catch (error) {
-      console.error('Failed to generate GameUserSettings.ini from the visual editor:', error);
+      console.error('Failed to apply visual settings to GameUserSettings.ini:', error);
     }
-  }, [onChange, tDefaultValues]);
+  }, [onChange]);
 
   const syncVisualToText = useCallback(() => {
     syncVisualToTextWithConfig(visualConfig);

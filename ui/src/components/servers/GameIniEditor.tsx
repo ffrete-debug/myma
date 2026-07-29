@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
+import { mergeIni } from '@/lib/ini';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -245,114 +246,28 @@ export function GameIniEditor({ value, onChange }: GameIniEditorProps) {
     parseTextToVisual(value);
   }, [value, parseTextToVisual]);
 
+  // Keep the newest text in a ref so the merge applies onto the CURRENT file,
+  // not a value captured when the callback was created.
+  const textContentRef = useRef(textContent);
+  useEffect(() => { textContentRef.current = textContent; }, [textContent]);
+
   const syncVisualToText = useCallback(() => {
     try {
-      let iniContent = '';
+      // MERGE onto the real Game.ini instead of rebuilding it.
+      //
+      // Rebuilding from the editor's own parameter catalogue silently deleted
+      // every key ARK had written that the catalogue did not know about,
+      // including whole sections such as [ModInstaller]. Unknown content is now
+      // preserved untouched.
+      const base = textContentRef.current || '';
+      const merged = mergeIni(base, visualConfig, '[/Script/ShooterGame.ShooterGameMode]');
 
-      // Add sections based on categories
-      iniContent += '[/script/shootergame.shootergamemode]\n';
-
-      // Basic game settings
-      const gameBasicParams = getGameIniParamsByCategory('gameBasic');
-      Object.keys(gameBasicParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Tribe settings
-      const tribeParams = getGameIniParamsByCategory('tribeSettings');
-      Object.keys(tribeParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      iniContent += '\n[/Script/ShooterGame.ShooterGameMode]\n';
-
-      // Experience settings
-      const expParams = getGameIniParamsByCategory('experienceSettings');
-      Object.keys(expParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Item settings
-      const itemParams = getGameIniParamsByCategory('itemSettings');
-      Object.keys(itemParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Dino settings
-      const dinoParams = getGameIniParamsByCategory('dinoSettings');
-      Object.keys(dinoParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Breeding settings
-      const breedingParams = getGameIniParamsByCategory('breedingSettings');
-      Object.keys(breedingParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // PvP settings
-      const pvpParams = getGameIniParamsByCategory('pvpSettings');
-      Object.keys(pvpParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Structure settings
-      const structureParams = getGameIniParamsByCategory('structureSettings');
-      Object.keys(structureParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Advanced settings
-      const advancedParams = getGameIniParamsByCategory('advancedSettings');
-      Object.keys(advancedParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      // Custom settings
-      const customParams = getGameIniParamsByCategory('customSettings');
-      Object.keys(customParams).forEach(key => {
-        const value = visualConfig[key];
-        if (value !== undefined) {
-          iniContent += `${key}=${value}\n`;
-        }
-      });
-
-      setTextContent(iniContent);
-      if (hasUserEditedRef.current) {
-        lastEmittedRef.current = iniContent;
-        onChangeRef.current?.(iniContent);
-      }
+      setTextContent(merged);
+      onChange?.(merged);
     } catch (error) {
-      console.error(t('syncVisualToTextError') + ':', error);
+      console.error('Failed to apply visual settings to Game.ini:', error);
     }
-  }, [visualConfig, t]);
+  }, [visualConfig, onChange]);
 
   // Sync visual to text when visual config changes
   useEffect(() => {
