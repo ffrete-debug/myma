@@ -137,7 +137,8 @@ export default function PlayersPage() {
         `/api/servers/${serverId}/players/history`,
         { headers: getAuthHeaders() }
       );
-      setHistory(response.data);
+      // Same null-vs-[] hazard as the online list.
+      setHistory(response.data ?? []);
     } catch {
       // silently ignore history fetch errors
     } finally {
@@ -266,7 +267,11 @@ export default function PlayersPage() {
                   {actionError}
                 </div>
               )}
-              {players.online.length === 0 ? (
+              {/* `online` arrives as null when nobody is connected - a Go nil slice
+                  marshals to JSON null, not []. Reading .length off it threw and
+                  crashed the page, which is why /players broke as soon as a
+                  server was actually selected. */}
+              {(players.online ?? []).length === 0 ? (
                 <p className="text-muted-foreground text-sm">{t('noOnlinePlayers')}</p>
               ) : (
                 <Table>
@@ -280,7 +285,7 @@ export default function PlayersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {players.online.map((p, i) => (
+                    {(players.online ?? []).map((p, i) => (
                       <TableRow key={`${p.steam_id}-${i}`}>
                         <TableCell className="font-medium">{p.name || '—'}</TableCell>
                         <TableCell className="font-mono text-xs">{p.steam_id || '—'}</TableCell>

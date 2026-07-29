@@ -340,9 +340,21 @@ func (s *ServerService) CreateServer(userID uint, req models.ServerRequest) (*mo
 	//
 	if gameUserSettings, err := dockerManager.ReadConfigFile(uint(server.ID), utils.GameUserSettingsFileName); err == nil {
 		response.GameUserSettings = gameUserSettings
+	} else {
+		// A failed read must not look like an empty config: the editor renders
+		// whatever comes back, and saving that blank would overwrite the real file.
+		utils.Warn("could not read GameUserSettings.ini from the volume",
+			zap.Uint("server_id", uint(server.ID)), zap.Error(err))
+		response.ConfigReadError = err.Error()
 	}
 	if gameIni, err := dockerManager.ReadConfigFile(uint(server.ID), utils.GameIniFileName); err == nil {
 		response.GameIni = gameIni
+	} else {
+		// A failed read must not look like an empty config: the editor renders
+		// whatever comes back, and saving that blank would overwrite the real file.
+		utils.Warn("could not read Game.ini from the volume",
+			zap.Uint("server_id", uint(server.ID)), zap.Error(err))
+		response.ConfigReadError = err.Error()
 	}
 
 	return &response, nil
@@ -399,9 +411,21 @@ func (s *ServerService) GetServer(userID uint, serverID string) (*models.ServerR
 
 	if gameUserSettings, err := dockerManager.ReadConfigFile(uint(id), utils.GameUserSettingsFileName); err == nil {
 		response.GameUserSettings = gameUserSettings
+	} else {
+		// A failed read must not look like an empty config: the editor renders
+		// whatever comes back, and saving that blank would overwrite the real file.
+		utils.Warn("could not read GameUserSettings.ini from the volume",
+			zap.Uint("server_id", uint(id)), zap.Error(err))
+		response.ConfigReadError = err.Error()
 	}
 	if gameIni, err := dockerManager.ReadConfigFile(uint(id), utils.GameIniFileName); err == nil {
 		response.GameIni = gameIni
+	} else {
+		// A failed read must not look like an empty config: the editor renders
+		// whatever comes back, and saving that blank would overwrite the real file.
+		utils.Warn("could not read Game.ini from the volume",
+			zap.Uint("server_id", uint(id)), zap.Error(err))
+		response.ConfigReadError = err.Error()
 	}
 
 	return &response, nil
@@ -614,9 +638,21 @@ func (s *ServerService) UpdateServer(userID uint, serverID string, req models.Se
 
 	if gameUserSettings, err := dockerManager.ReadConfigFile(uint(id), utils.GameUserSettingsFileName); err == nil {
 		response.GameUserSettings = gameUserSettings
+	} else {
+		// A failed read must not look like an empty config: the editor renders
+		// whatever comes back, and saving that blank would overwrite the real file.
+		utils.Warn("could not read GameUserSettings.ini from the volume",
+			zap.Uint("server_id", uint(id)), zap.Error(err))
+		response.ConfigReadError = err.Error()
 	}
 	if gameIni, err := dockerManager.ReadConfigFile(uint(id), utils.GameIniFileName); err == nil {
 		response.GameIni = gameIni
+	} else {
+		// A failed read must not look like an empty config: the editor renders
+		// whatever comes back, and saving that blank would overwrite the real file.
+		utils.Warn("could not read Game.ini from the volume",
+			zap.Uint("server_id", uint(id)), zap.Error(err))
+		response.ConfigReadError = err.Error()
 	}
 
 	return &response, argsChanged || configChanged, nil

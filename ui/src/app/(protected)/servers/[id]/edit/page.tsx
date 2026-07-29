@@ -35,6 +35,7 @@ export default function ServerEditPage() {
   const [formData, setFormData] = useState<Partial<Server>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [configReadError, setConfigReadError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -55,6 +56,11 @@ export default function ServerEditPage() {
         const serverData = await getServer(serverId);
         setServer(serverData);
         setFormData(serverData);
+        // The backend reports when it could not read the live INI out of the
+        // volume. Without this the editor would render an empty file, and saving
+        // it would overwrite the real configuration with nothing.
+        const readError = (serverData as { config_read_error?: string }).config_read_error;
+        setConfigReadError(readError || '');
       } catch {
         setError(tServersEdit('loadServerInfoFailed'));
       } finally {
@@ -75,6 +81,13 @@ export default function ServerEditPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Refuse to save config we could not read. Writing the blank editor contents
+    // back would destroy the server's real Game.ini / GameUserSettings.ini.
+    if (configReadError) {
+      setError(tServersEdit('configUnreadable'));
+      return;
+    }
+
     try {
       setSaving(true);
       await updateServer(serverId, formData);
@@ -196,6 +209,17 @@ export default function ServerEditPage() {
             <p className="text-muted-foreground">{server?.session_name}</p>
           </div>
         </div>
+
+        {configReadError && (
+
+          <div className="mb-4 rounded-md border border-amber-900/50 bg-amber-950/20 px-4 py-3 text-sm text-amber-200">
+
+            {tServersEdit('configUnreadable')}
+
+          </div>
+
+        )}
+
 
         {error && (
           <Alert variant="destructive" className="mb-4">

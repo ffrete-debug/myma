@@ -238,6 +238,7 @@ export default {
     noLogs: '暂无日志',
     getServerListFailed: '获取服务器列表失败，请稍后重试',
     loadServerInfoFailed: '加载服务器信息失败，请稍后重试',
+    configUnreadable: '无法从该服务器读取实时配置文件，下方编辑器可能为空。已禁用保存以避免覆盖真实配置。请检查服务器卷是否存在以及 Docker 是否可用。',
     fetchLogsFailed: '获取日志失败，请稍后重试',
     serverUpdateError: '更新服务器失败，请稍后重试',
     operationFailed: '操作失败，请稍后重试',

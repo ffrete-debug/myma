@@ -81,6 +81,11 @@ type ServerResponse struct {
 	// Start
 	ServerArgs    *ServerArgs `json:"server_args,omitempty"`    // Start
 	GeneratedArgs string      `json:"generated_args,omitempty"` // Start
+
+	// Set when the live INI could not be read out of the volume. The editor uses
+	// it to warn instead of rendering an empty file, which a user could
+	// otherwise save straight over their real configuration.
+	ConfigReadError string `json:"config_read_error,omitempty"`
 }
 
 type ServerUpdateRequest struct {
