@@ -1207,8 +1207,19 @@ func (s *ServerService) GetImageStatus() (map[string]interface{}, error) {
 // by the stop finishing afterwards) and the server ended up stopped. That is why
 // the restart button appeared to only stop the server.
 func (s *ServerService) RestartServer(userID uint, serverID string) error {
-	if err := s.StopServer(userID, serverID); err != nil {
-		return fmt.Errorf("stop for restart: %w", err)
+	// A restart on a server that is already stopped is a plain start, not an
+	// error. StopServer rejects a stopped or stopping server, and aborting here
+	// meant the restart never started it again - and never re-applied the config
+	// either, so a config edit made while the server was down was silently lost.
+	var current models.Server
+	if err := database.DB.Where("id = ?", serverID).First(&current).Error; err != nil {
+		return fmt.Errorf("load server: %w", err)
+	}
+	if current.Status != "stopped" {
+		if err := s.StopServer(userID, serverID); err != nil {
+			utils.Warn("restart: stop reported an error; continuing",
+				zap.String("server_id", serverID), zap.Error(err))
+		}
 	}
 
 	id, err := utils.ParseUint(serverID)
