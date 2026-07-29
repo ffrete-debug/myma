@@ -423,6 +423,8 @@ export default {
       enabled: '启用',
       disabled: '禁用',
       parametersCount: '个参数',
+      otherSettingsTitle: '该文件中的其他设置',
+      otherSettingsHint: 'ARK 写入但不在上述预设中的 {count} 项设置。此处显示以免遗漏，保存时会予以保留。',
       defaultValue: '默认值',
       parseGameIniError: '解析Game.ini文本失败',
       syncVisualToTextError: '同步可视化配置到文本失败',
