@@ -1,5 +1,10 @@
 import { create } from 'zustand';
-import axios from 'axios';
+// Use the configured instance, not bare axios: it carries the 401 handler
+// that clears a dead session and sends the user to /login. Calls made with
+// bare axios skipped it, so a token for a user that no longer exists (after
+// the database is reset, say) produced a console error per caller and left
+// the page stranded instead of redirecting once.
+import axios from '@/lib/axios';
 import Cookies from 'js-cookie';
 
 // Define server object type

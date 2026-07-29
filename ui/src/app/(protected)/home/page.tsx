@@ -1,5 +1,6 @@
 "use client";
 
+import { isAxiosError } from 'axios';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Link } from '@/navigation';
@@ -22,7 +23,14 @@ export default function HomePage() {
 
     const refreshImageStatus = useCallback(async () => {
         try { await getImageStatus(); }
-        catch (error) { console.error('Failed to get image status:', error); }
+        catch (error) {
+          // A 401 means the session is dead; the shared interceptor clears it and
+          // moves the user on. Logging it here is what filled the console on a
+          // fresh install.
+          if (!isAxiosError(error) || error.response?.status !== 401) {
+            console.error('Failed to get image status:', error);
+          }
+        }
     }, [getImageStatus]);
 
     const handleManualDownload = async () => {
