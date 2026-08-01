@@ -20,7 +20,7 @@
 # sensible follow-up but is a behaviour change, so it is not done here.
 
 # Stage 1: Build Go binary
-FROM golang:1.24.4-alpine@sha256:68932fa6d4d4059845c8f40ad7e654e626f3ebd3706eef7846f319293ab5cb7a AS builder-go
+FROM golang:1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS builder-go
 WORKDIR /app/server
 
 # go.mod/go.sum are copied on their own so the module download lands in its own
