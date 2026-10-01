@@ -35,7 +35,7 @@ COPY server/ .
 RUN go build -o /app/bin/ark-commander .
 
 # Stage 2: Build Next.js frontend
-FROM node:20.19.0-alpine@sha256:8bda036ddd59ea51a23bc1a1035d3b5c614e72c01366d989f4120e8adca196d4 AS builder-ui
+FROM node:26.10.0-alpine@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS builder-ui
 WORKDIR /app/ui
 
 # `npm ci`, not `npm install`. npm ci installs exactly what package-lock.json
